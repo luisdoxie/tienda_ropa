@@ -296,3 +296,121 @@ class TablaMedidaRespuesta(BaseModel):
     cintura_max_cm: Decimal | None = None
     hombros_cm: Decimal | None = None
     largo_cm: Decimal | None = None
+
+
+# ---- Imágenes de producto ------------------------------------------------------
+
+
+class ImagenRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    producto_id: int
+    color_id: int | None = None
+    public_id: str
+    url: str
+    orden: int
+    es_principal: bool
+
+    @classmethod
+    def from_modelo(cls, imagen, url: str) -> "ImagenRespuesta":
+        return cls(
+            id=imagen.id,
+            producto_id=imagen.producto_id,
+            color_id=imagen.color_id,
+            public_id=imagen.url,
+            url=url,
+            orden=imagen.orden,
+            es_principal=imagen.es_principal,
+        )
+
+
+# ---- Catálogo público ----------------------------------------------------------
+
+
+class FiltrosCatalogo(BaseModel):
+    """DTO interno para /catalogo/buscar. No es un body: se arma en el
+    router a partir de query params."""
+
+    texto: str | None = None
+    categoria_id: int | None = None
+    talla_id: int | None = None
+    color_id: int | None = None
+    material_id: int | None = None
+    temporada_id: int | None = None
+    genero: Genero | None = None
+    precio_min: Decimal | None = None
+    precio_max: Decimal | None = None
+    # TODO(P3.1): sin `inventario` todavía no hay noción de stock por
+    # sucursal. Se acepta el parámetro pero no filtra nada por ahora.
+    sucursal_id: int | None = None
+    solo_disponibles: bool = False
+
+
+class CatalogoItemRespuesta(BaseModel):
+    """Fila liviana para el listado. Sin variantes ni medidas: eso es
+    solo para el detalle, para no pagar el peso de todo el producto en
+    cada fila de una grilla de 50."""
+
+    id: int
+    codigo: str
+    nombre: str
+    categoria_id: int
+    genero: str
+    precio_base: Decimal
+    admite_probador: bool
+    imagen_principal: str | None = None
+
+
+class VarianteCatalogoRespuesta(BaseModel):
+    id: int
+    talla_id: int
+    color_id: int
+    sku: str
+    precio_efectivo: Decimal
+    # TODO(P3.1): hoy siempre None. Cuando exista el paquete `inventario`,
+    # esto se resuelve llamando a inventario.service (nunca a la tabla
+    # `stock` directamente), sumando cantidad_disponible por sucursal (o
+    # filtrado a una sucursal si se pidió `sucursal_id` en la búsqueda).
+    cantidad_disponible: int | None = None
+
+
+class CatalogoDetalleRespuesta(BaseModel):
+    id: int
+    codigo: str
+    nombre: str
+    descripcion: str | None = None
+    categoria_id: int
+    material_id: int | None = None
+    temporada_id: int | None = None
+    coleccion_id: int | None = None
+    genero: str
+    precio_base: Decimal
+    admite_probador: bool
+    variantes: list[VarianteCatalogoRespuesta]
+    imagenes: list[ImagenRespuesta]
+
+
+# ---- Favoritos ---------------------------------------------------------------
+
+
+class FavoritoCrear(BaseModel):
+    variante_id: int
+
+
+class FavoritoRespuesta(BaseModel):
+    variante_id: int
+    producto_id: int
+    nombre_producto: str
+    sku: str
+    creado_en: dt.datetime
+
+    @classmethod
+    def from_modelo(cls, favorito) -> "FavoritoRespuesta":
+        return cls(
+            variante_id=favorito.variante_id,
+            producto_id=favorito.variante.producto_id,
+            nombre_producto=favorito.variante.producto.nombre,
+            sku=favorito.variante.sku,
+            creado_en=favorito.creado_en,
+        )

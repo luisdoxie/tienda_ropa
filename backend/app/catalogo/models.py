@@ -7,12 +7,14 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    Index,
     Numeric,
     SmallInteger,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -81,6 +83,9 @@ class Producto(Base):
     __table_args__ = (
         CheckConstraint("genero IN ('hombre','mujer','unisex','nino')", name="ck_producto_genero"),
         CheckConstraint("precio_base >= 0", name="ck_producto_precio_base"),
+        Index("ix_producto_categoria", "categoria_id", postgresql_where=text("activo")),
+        Index("ix_producto_temporada", "temporada_id", postgresql_where=text("activo")),
+        Index("ix_producto_genero", "genero", "categoria_id", postgresql_where=text("activo")),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -99,6 +104,11 @@ class Producto(Base):
     creado_en: Mapped[dt.datetime] = mapped_column(server_default=func.now())
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuario.id"))
 
+    variantes: Mapped[list["ProductoVariante"]] = relationship(
+        back_populates="producto", order_by="ProductoVariante.id"
+    )
+    imagenes: Mapped[list["ProductoImagen"]] = relationship(order_by="ProductoImagen.orden")
+
 
 # La variante es la unidad real de negocio: el stock, el precio final, la
 # reserva y la venta cuelgan de acá, nunca del producto.
@@ -107,6 +117,7 @@ class ProductoVariante(Base):
     __table_args__ = (
         CheckConstraint("precio IS NULL OR precio >= 0", name="ck_variante_precio"),
         UniqueConstraint("producto_id", "talla_id", "color_id", name="uq_variante_producto_talla_color"),
+        Index("ix_variante_producto", "producto_id", postgresql_where=text("activo")),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -118,7 +129,7 @@ class ProductoVariante(Base):
     precio: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    producto: Mapped[Producto] = relationship()
+    producto: Mapped[Producto] = relationship(back_populates="variantes")
 
 
 class ProductoImagen(Base):
@@ -151,3 +162,15 @@ class TablaMedida(Base):
     cintura_max_cm: Mapped[Decimal | None] = mapped_column(Numeric(5, 1))
     hombros_cm: Mapped[Decimal | None] = mapped_column(Numeric(5, 1))
     largo_cm: Mapped[Decimal | None] = mapped_column(Numeric(5, 1))
+
+
+class Favorito(Base):
+    __tablename__ = "favorito"
+
+    cliente_id: Mapped[int] = mapped_column(ForeignKey("cliente.id", ondelete="CASCADE"), primary_key=True)
+    variante_id: Mapped[int] = mapped_column(
+        ForeignKey("producto_variante.id", ondelete="CASCADE"), primary_key=True
+    )
+    creado_en: Mapped[dt.datetime] = mapped_column(server_default=func.now())
+
+    variante: Mapped[ProductoVariante] = relationship()

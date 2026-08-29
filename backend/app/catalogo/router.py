@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -9,6 +11,7 @@ from app.catalogo.repository import (
     CategoriaRepository,
     ColeccionRepository,
     ColorRepository,
+    ImagenRepository,
     MaterialRepository,
     ProductoRepository,
     TablaMedidaRepository,
@@ -20,12 +23,19 @@ from app.catalogo.schemas import (
     CategoriaActualizar,
     CategoriaCrear,
     CategoriaRespuesta,
+    CatalogoDetalleRespuesta,
+    CatalogoItemRespuesta,
     ColeccionActualizar,
     ColeccionCrear,
     ColeccionRespuesta,
     ColorActualizar,
     ColorCrear,
     ColorRespuesta,
+    FavoritoCrear,
+    FavoritoRespuesta,
+    FiltrosCatalogo,
+    Genero,
+    ImagenRespuesta,
     MaterialActualizar,
     MaterialCrear,
     MaterialRespuesta,
@@ -55,6 +65,13 @@ coleccion_repo = ColeccionRepository()
 producto_repo = ProductoRepository()
 variante_repo = VarianteRepository()
 medida_repo = TablaMedidaRepository()
+imagen_repo = ImagenRepository()
+
+
+def paginacion_catalogo(
+    pagina: int = Query(default=1, ge=1), tamanio: int = Query(default=20, ge=1, le=50)
+) -> ParametrosPaginacion:
+    return ParametrosPaginacion(pagina=pagina, tamanio=tamanio)
 
 PERMISO_CATALOGO = "catalogo.gestionar"
 admin_requerido = Depends(require_permission(PERMISO_CATALOGO))
@@ -392,6 +409,121 @@ def eliminar_medida(producto_id: int, medida_id: int, db: Session = Depends(get_
     medida_repo.eliminar(db, producto_id, medida_id)
 
 
+# ---- /api/v1/productos/{id}/imagenes y /api/v1/imagenes/{id} ---------------
+# La subida pasa siempre por el backend: el cliente nunca ve el api_secret
+# de Cloudinary ni sube directo. Ver core/storage.py.
+
+
+@productos_router.post(
+    "/{producto_id}/imagenes", response_model=ImagenRespuesta, status_code=status.HTTP_201_CREATED
+)
+async def subir_imagen(
+    producto_id: int,
+    archivo: UploadFile = File(...),
+    color_id: int | None = Form(default=None),
+    es_principal: bool = Form(default=False),
+    db: Session = Depends(get_db),
+) -> ImagenRespuesta:
+    contenido = await archivo.read()
+    imagen, url = service.subir_imagen_producto(
+        db, producto_id, contenido, archivo.content_type, color_id, es_principal
+    )
+    return ImagenRespuesta.from_modelo(imagen, url)
+
+
+imagenes_router = APIRouter(prefix="/api/v1/imagenes", tags=["imagenes"], dependencies=[admin_requerido])
+
+
+@imagenes_router.delete("/{imagen_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_imagen(imagen_id: int, db: Session = Depends(get_db)) -> None:
+    service.eliminar_imagen(db, imagen_id)
+
+
+@imagenes_router.put("/{imagen_id}/principal", response_model=ImagenRespuesta)
+def marcar_imagen_principal(imagen_id: int, db: Session = Depends(get_db)) -> ImagenRespuesta:
+    imagen, url = service.marcar_imagen_principal(db, imagen_id)
+    return ImagenRespuesta.from_modelo(imagen, url)
+
+
+# ---- /api/v1/catalogo (público) --------------------------------------------
+
+catalogo_router = APIRouter(prefix="/api/v1/catalogo", tags=["catalogo"])
+
+
+@catalogo_router.get("", response_model=list[CatalogoItemRespuesta])
+def listar_catalogo(
+    db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(paginacion_catalogo)
+) -> list[CatalogoItemRespuesta]:
+    return service.listar_catalogo(db, paginacion)
+
+
+@catalogo_router.get("/buscar", response_model=list[CatalogoItemRespuesta])
+def buscar_catalogo(
+    db: Session = Depends(get_db),
+    paginacion: ParametrosPaginacion = Depends(paginacion_catalogo),
+    q: str | None = Query(default=None, description="Texto libre sobre nombre y descripción"),
+    categoria_id: int | None = None,
+    talla_id: int | None = None,
+    color_id: int | None = None,
+    material_id: int | None = None,
+    temporada_id: int | None = None,
+    genero: Genero | None = None,
+    precio_min: Decimal | None = None,
+    precio_max: Decimal | None = None,
+    sucursal_id: int | None = None,
+    solo_disponibles: bool = False,
+) -> list[CatalogoItemRespuesta]:
+    filtros = FiltrosCatalogo(
+        texto=q,
+        categoria_id=categoria_id,
+        talla_id=talla_id,
+        color_id=color_id,
+        material_id=material_id,
+        temporada_id=temporada_id,
+        genero=genero,
+        precio_min=precio_min,
+        precio_max=precio_max,
+        sucursal_id=sucursal_id,
+        solo_disponibles=solo_disponibles,
+    )
+    return service.buscar_catalogo(db, paginacion, filtros)
+
+
+@catalogo_router.get("/{producto_id}", response_model=CatalogoDetalleRespuesta)
+def obtener_detalle_catalogo(
+    producto_id: int,
+    sucursal_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> CatalogoDetalleRespuesta:
+    return service.obtener_detalle_catalogo(db, producto_id, sucursal_id)
+
+
+# ---- /api/v1/favoritos (requiere sesión de cliente) -------------------------
+
+favoritos_router = APIRouter(prefix="/api/v1/favoritos", tags=["favoritos"])
+
+
+@favoritos_router.get("", response_model=list[FavoritoRespuesta])
+def listar_favoritos(
+    usuario=Depends(get_current_user), db: Session = Depends(get_db)
+) -> list[FavoritoRespuesta]:
+    return service.listar_favoritos(db, usuario.id)
+
+
+@favoritos_router.post("", response_model=FavoritoRespuesta, status_code=status.HTTP_201_CREATED)
+def agregar_favorito(
+    datos: FavoritoCrear, usuario=Depends(get_current_user), db: Session = Depends(get_db)
+) -> FavoritoRespuesta:
+    return service.agregar_favorito(db, usuario.id, datos.variante_id)
+
+
+@favoritos_router.delete("/{variante_id}", status_code=status.HTTP_204_NO_CONTENT)
+def quitar_favorito(
+    variante_id: int, usuario=Depends(get_current_user), db: Session = Depends(get_db)
+) -> None:
+    service.quitar_favorito(db, usuario.id, variante_id)
+
+
 routers = [
     categorias_router,
     tallas_router,
@@ -401,4 +533,7 @@ routers = [
     colecciones_router,
     productos_router,
     variantes_router,
+    imagenes_router,
+    catalogo_router,
+    favoritos_router,
 ]

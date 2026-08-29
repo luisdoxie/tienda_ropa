@@ -67,13 +67,18 @@ def admin_headers(client, db_session):
 
 
 @pytest.fixture()
-def cliente_headers(client, db_session):
-    usuario_repo = UsuarioRepository()
-    usuario = usuario_repo.crear(
-        db_session,
-        UsuarioCrear(nombre="Cli", apellido="Ente", email="cliente@example.com", password="claveSegura123"),
+def cliente_headers(client):
+    # Vía /auth/registro (no usuario_repo.crear a mano): así el usuario
+    # también tiene su fila en `cliente`, igual que en producción. Varios
+    # endpoints (favoritos, perfil) la necesitan.
+    client.post(
+        "/api/v1/auth/registro",
+        json={
+            "nombre": "Cli",
+            "apellido": "Ente",
+            "email": "cliente@example.com",
+            "password": "claveSegura123",
+        },
     )
-    usuario_repo.asignar_roles(db_session, usuario, ["cliente"])
-
     token = _login(client, "cliente@example.com", "claveSegura123")
     return {"Authorization": f"Bearer {token}"}

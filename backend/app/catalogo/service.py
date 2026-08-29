@@ -3,12 +3,15 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import storage
+from app.core.deps import ParametrosPaginacion
 from app.core.exceptions import ConflictoError, DomainError, NoEncontradoError
 from app.catalogo.models import (
     Categoria,
     Coleccion,
     Color,
     Producto,
+    ProductoImagen,
     ProductoVariante,
     Talla,
     TablaMedida,
@@ -18,6 +21,8 @@ from app.catalogo.repository import (
     CategoriaRepository,
     ColeccionRepository,
     ColorRepository,
+    FavoritoRepository,
+    ImagenRepository,
     MaterialRepository,
     ProductoRepository,
     TablaMedidaRepository,
@@ -28,16 +33,23 @@ from app.catalogo.repository import (
 from app.catalogo.schemas import (
     CategoriaActualizar,
     CategoriaCrear,
+    CatalogoDetalleRespuesta,
+    CatalogoItemRespuesta,
     ColeccionActualizar,
     ColeccionCrear,
+    FavoritoRespuesta,
+    FiltrosCatalogo,
+    ImagenRespuesta,
     ProductoActualizar,
     ProductoCrear,
     TablaMedidaActualizar,
     TablaMedidaCrear,
     TemporadaActualizar,
     VarianteActualizar,
+    VarianteCatalogoRespuesta,
     VariantesGenerarRequest,
 )
+from app.seguridad import service as seguridad_service
 
 categoria_repo = CategoriaRepository()
 temporada_repo = TemporadaRepository()
@@ -48,6 +60,11 @@ material_repo = MaterialRepository()
 producto_repo = ProductoRepository()
 variante_repo = VarianteRepository()
 medida_repo = TablaMedidaRepository()
+imagen_repo = ImagenRepository()
+favorito_repo = FavoritoRepository()
+
+CONTENT_TYPES_PERMITIDOS = {"image/jpeg", "image/png", "image/webp"}
+TAMANIO_MAXIMO_BYTES = 10 * 1024 * 1024  # 10MB
 
 # CLAUDE.md: "Alcance del probador virtual: solo prendas superiores
 # masculinas (poleras, camisas, chamarras)". No hay columna en `categoria`
@@ -283,3 +300,149 @@ def actualizar_medida(db: Session, producto_id: int, medida_id: int, datos: Tabl
     if datos.talla_id is not None:
         talla_repo.obtener(db, datos.talla_id)
     return medida_repo.actualizar(db, producto_id, medida_id, datos)
+
+
+# ---- Imágenes de producto ------------------------------------------------------
+
+
+def subir_imagen_producto(
+    db: Session,
+    producto_id: int,
+    contenido: bytes,
+    content_type: str | None,
+    color_id: int | None,
+    es_principal: bool,
+) -> tuple[ProductoImagen, str]:
+    producto_repo.obtener(db, producto_id)
+    if color_id is not None:
+        color_repo.obtener(db, color_id)
+
+    if content_type not in CONTENT_TYPES_PERMITIDOS:
+        raise DomainError("El archivo debe ser una imagen (jpeg, png o webp)")
+    if len(contenido) > TAMANIO_MAXIMO_BYTES:
+        raise DomainError("La imagen supera el tamaño máximo permitido (10MB)")
+
+    public_id = storage.subir_imagen(contenido, storage.carpeta_producto(producto_id))
+
+    orden = len(imagen_repo.listar_por_producto(db, producto_id))
+    imagen = imagen_repo.crear(db, producto_id, public_id, color_id, orden)
+
+    if es_principal:
+        imagen = imagen_repo.marcar_principal(db, imagen)
+
+    return imagen, storage.url_catalogo(public_id)
+
+
+def eliminar_imagen(db: Session, imagen_id: int) -> None:
+    imagen = imagen_repo.obtener(db, imagen_id)
+    # Primero se borra el archivo real; si eso falla, la fila de la base
+    # se conserva (mejor una referencia a un archivo que sigue vivo que
+    # perder la referencia a uno que capaz no se borró).
+    storage.eliminar_imagen(imagen.url)
+    imagen_repo.eliminar(db, imagen_id)
+
+
+def marcar_imagen_principal(db: Session, imagen_id: int) -> tuple[ProductoImagen, str]:
+    imagen = imagen_repo.obtener(db, imagen_id)
+    imagen = imagen_repo.marcar_principal(db, imagen)
+    return imagen, storage.url_catalogo(imagen.url)
+
+
+# ---- Catálogo público ------------------------------------------------------
+
+
+def _imagen_principal_url(producto: Producto) -> str | None:
+    if not producto.imagenes:
+        return None
+    principal = next((img for img in producto.imagenes if img.es_principal), producto.imagenes[0])
+    return storage.url_catalogo(principal.url)
+
+
+def _a_item_catalogo(producto: Producto) -> CatalogoItemRespuesta:
+    return CatalogoItemRespuesta(
+        id=producto.id,
+        codigo=producto.codigo,
+        nombre=producto.nombre,
+        categoria_id=producto.categoria_id,
+        genero=producto.genero,
+        precio_base=producto.precio_base,
+        admite_probador=producto.admite_probador,
+        imagen_principal=_imagen_principal_url(producto),
+    )
+
+
+def listar_catalogo(db: Session, paginacion: ParametrosPaginacion) -> list[CatalogoItemRespuesta]:
+    productos = producto_repo.listar_publico(db, paginacion)
+    return [_a_item_catalogo(p) for p in productos]
+
+
+def buscar_catalogo(
+    db: Session, paginacion: ParametrosPaginacion, filtros: FiltrosCatalogo
+) -> list[CatalogoItemRespuesta]:
+    productos = producto_repo.buscar_publico(db, paginacion, filtros)
+    return [_a_item_catalogo(p) for p in productos]
+
+
+def _disponibilidad_variante(variante_id: int, sucursal_id: int | None) -> int | None:
+    """TODO(P3.1): pedir la disponibilidad real a inventario.service una
+    vez que exista ese paquete (nunca consultar la tabla `stock` acá
+    directamente — regla de aislamiento entre paquetes). Por ahora no hay
+    ninguna noción de stock, así que siempre devuelve None."""
+    return None
+
+
+def obtener_detalle_catalogo(
+    db: Session, producto_id: int, sucursal_id: int | None = None
+) -> CatalogoDetalleRespuesta:
+    producto = producto_repo.obtener_publico_detalle(db, producto_id)
+
+    variantes = [
+        VarianteCatalogoRespuesta(
+            id=v.id,
+            talla_id=v.talla_id,
+            color_id=v.color_id,
+            sku=v.sku,
+            precio_efectivo=v.precio if v.precio is not None else producto.precio_base,
+            cantidad_disponible=_disponibilidad_variante(v.id, sucursal_id),
+        )
+        for v in producto.variantes
+        if v.activo
+    ]
+    imagenes = [ImagenRespuesta.from_modelo(img, storage.url_catalogo(img.url)) for img in producto.imagenes]
+
+    return CatalogoDetalleRespuesta(
+        id=producto.id,
+        codigo=producto.codigo,
+        nombre=producto.nombre,
+        descripcion=producto.descripcion,
+        categoria_id=producto.categoria_id,
+        material_id=producto.material_id,
+        temporada_id=producto.temporada_id,
+        coleccion_id=producto.coleccion_id,
+        genero=producto.genero,
+        precio_base=producto.precio_base,
+        admite_probador=producto.admite_probador,
+        variantes=variantes,
+        imagenes=imagenes,
+    )
+
+
+# ---- Favoritos --------------------------------------------------------------
+
+
+def listar_favoritos(db: Session, usuario_id: int) -> list[FavoritoRespuesta]:
+    cliente = seguridad_service.obtener_perfil_cliente(db, usuario_id)
+    favoritos = favorito_repo.listar_por_cliente(db, cliente.id)
+    return [FavoritoRespuesta.from_modelo(f) for f in favoritos]
+
+
+def agregar_favorito(db: Session, usuario_id: int, variante_id: int) -> FavoritoRespuesta:
+    cliente = seguridad_service.obtener_perfil_cliente(db, usuario_id)
+    variante_repo.obtener(db, variante_id)  # 404 si no existe o está inactiva
+    favorito = favorito_repo.agregar(db, cliente.id, variante_id)
+    return FavoritoRespuesta.from_modelo(favorito)
+
+
+def quitar_favorito(db: Session, usuario_id: int, variante_id: int) -> None:
+    cliente = seguridad_service.obtener_perfil_cliente(db, usuario_id)
+    favorito_repo.quitar(db, cliente.id, variante_id)

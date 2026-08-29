@@ -1,0 +1,24 @@
+<div class="login">
+  <form class="login__tarjeta" [formGroup]="formulario" (ngSubmit)="enviar()">
+    <h1>FashionStore</h1>
+    <p class="login__subtitulo">Back office</p>
+
+    <label for="email">Email</label>
+    <input id="email" type="email" pInputText formControlName="email" autocomplete="username" />
+
+    <label for="password">Contraseña</label>
+    <p-password
+      inputId="password"
+      formControlName="password"
+      [feedback]="false"
+      [toggleMask]="true"
+      autocomplete="current-password"
+    />
+
+    @if (errorLogin()) {
+      <p class="login__error">{{ errorLogin() }}</p>
+    }
+
+    <p-button type="submit" label="Ingresar" [loading]="cargando()" styleClass="w-full" />
+  </form>
+</div>

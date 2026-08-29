@@ -1,0 +1,24 @@
+<div class="layout">
+  <aside class="layout__menu">
+    <div class="layout__marca">FashionStore</div>
+    <nav>
+      @for (item of itemsMenu(); track item.ruta) {
+        <a [routerLink]="item.ruta" routerLinkActive="activo" class="layout__enlace">
+          <i [class]="item.icono"></i>
+          <span>{{ item.etiqueta }}</span>
+        </a>
+      }
+    </nav>
+  </aside>
+
+  <div class="layout__contenido">
+    <header class="layout__barra">
+      <span>{{ usuario()?.nombre }} {{ usuario()?.apellido }}</span>
+      <p-button label="Salir" icon="pi pi-sign-out" size="small" severity="secondary" (onClick)="cerrarSesion()" />
+    </header>
+
+    <main class="layout__panel">
+      <router-outlet />
+    </main>
+  </div>
+</div>

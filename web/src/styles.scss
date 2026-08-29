@@ -1,0 +1,76 @@
+@import 'primeicons/primeicons.css';
+
+// Tokens de diseño de CLAUDE.md, como variables CSS. El back office es
+// denso: tablas compactas, poco espaciado.
+:root {
+  --fs-fondo: #ffffff;
+  --fs-fondo-alterno: #f7f7f5;
+  --fs-texto: #1a1a1a;
+  --fs-texto-tenue: #6b6b6b;
+  --fs-acento: #1f2937;
+  --fs-exito: #16a34a;
+  --fs-error: #dc2626;
+  --fs-borde: #e5e5e5;
+  --fs-radio: 8px;
+
+  --fs-espacio-1: 4px;
+  --fs-espacio-2: 8px;
+  --fs-espacio-3: 12px;
+  --fs-espacio-4: 16px;
+  --fs-espacio-6: 24px;
+  --fs-espacio-8: 32px;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--fs-fondo-alterno);
+  color: var(--fs-texto);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 14px;
+}
+
+// Back office denso: PrimeNG trae bastante padding por defecto, se recorta
+// acá para que quepan más filas por pantalla sin tocar cada tabla.
+.p-datatable .p-datatable-tbody > tr > td,
+.p-datatable .p-datatable-thead > tr > th {
+  padding: var(--fs-espacio-2) var(--fs-espacio-3) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  font-size: 13px;
+}
+
+.p-component {
+  font-size: 14px;
+}
+
+.p-button {
+  padding: var(--fs-espacio-2) var(--fs-espacio-3);
+}
+
+// Formularios de los diálogos de crear/editar de cada pantalla CRUD.
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+
+  label {
+    font-size: 12px;
+    color: var(--fs-texto-tenue);
+    margin-top: var(--fs-espacio-2);
+  }
+
+  &__checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--fs-espacio-2);
+    flex-direction: row;
+  }
+}

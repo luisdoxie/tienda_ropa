@@ -1,0 +1,18 @@
+:host {
+  display: block;
+}
+
+.tabla-generica-barra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--fs-espacio-3);
+  margin-bottom: var(--fs-espacio-3);
+}
+
+.tabla-generica-pie {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-3);
+  margin-top: var(--fs-espacio-3);
+}

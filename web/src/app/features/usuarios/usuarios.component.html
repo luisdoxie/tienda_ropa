@@ -1,0 +1,38 @@
+<h1>Usuarios</h1>
+
+<app-tabla-generica
+  endpoint="/usuarios"
+  [columnas]="columnas"
+  (crear)="abrirCrear()"
+  (editar)="abrirEditar($event)"
+/>
+
+<p-dialog header="Usuario" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '380px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="apellido">Apellido</label>
+    <input id="apellido" pInputText formControlName="apellido" />
+
+    <label for="email">Email</label>
+    <input id="email" pInputText type="email" formControlName="email" />
+
+    <label for="telefono">Teléfono</label>
+    <input id="telefono" pInputText formControlName="telefono" />
+
+    @if (!editando()) {
+      <label for="password">Contraseña</label>
+      <p-password inputId="password" formControlName="password" [feedback]="false" [toggleMask]="true" />
+    }
+
+    @if (editando()) {
+      <label class="formulario__checkbox">
+        <p-checkbox formControlName="activo" [binary]="true" />
+        Activo
+      </label>
+    }
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

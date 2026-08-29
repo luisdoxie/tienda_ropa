@@ -1,0 +1,20 @@
+<h1>Roles</h1>
+
+<app-tabla-generica
+  endpoint="/roles"
+  [columnas]="columnas"
+  (crear)="abrirCrear()"
+  (editar)="abrirEditar($event)"
+/>
+
+<p-dialog header="Rol" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '360px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="descripcion">Descripción</label>
+    <input id="descripcion" pInputText formControlName="descripcion" />
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

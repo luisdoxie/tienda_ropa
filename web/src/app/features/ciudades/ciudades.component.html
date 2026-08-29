@@ -1,0 +1,20 @@
+<h1>Ciudades</h1>
+
+<app-tabla-generica
+  endpoint="/ciudades"
+  [columnas]="columnas"
+  (crear)="abrirCrear()"
+  (editar)="abrirEditar($event)"
+/>
+
+<p-dialog header="Ciudad" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '360px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="departamento">Departamento</label>
+    <input id="departamento" pInputText formControlName="departamento" />
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

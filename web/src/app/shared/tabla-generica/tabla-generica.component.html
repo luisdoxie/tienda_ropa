@@ -1,0 +1,99 @@
+<p-confirmdialog />
+
+<div class="tabla-generica-barra">
+  <p-iconfield>
+    <p-inputicon class="pi pi-search" />
+    <input
+      pInputText
+      type="text"
+      placeholder="Buscar en esta página..."
+      (input)="filtrarGlobal($any($event.target).value)"
+    />
+  </p-iconfield>
+
+  @if (!soloLectura) {
+    <p-button label="Nuevo" icon="pi pi-plus" size="small" (onClick)="crear.emit()" />
+  }
+</div>
+
+<p-table
+  #tabla
+  [value]="filas()"
+  [loading]="cargando()"
+  [globalFilterFields]="columnas.map(c => c.campo)"
+  dataKey="id"
+  styleClass="p-datatable-sm"
+>
+  <ng-template #header>
+    <tr>
+      @for (columna of columnas; track columna.campo) {
+        <th [pSortableColumn]="columna.campo">
+          {{ columna.encabezado }}
+        </th>
+      }
+      @if (!soloLectura) {
+        <th style="width: 6rem">Acciones</th>
+      }
+    </tr>
+  </ng-template>
+
+  <ng-template #body let-fila>
+    <tr>
+      @for (columna of columnas; track columna.campo) {
+        <td>
+          @switch (columna.tipo) {
+            @case ('booleano') {
+              <i
+                class="pi"
+                [class.pi-check]="fila[columna.campo]"
+                [class.pi-times]="!fila[columna.campo]"
+              ></i>
+            }
+            @case ('fecha') {
+              {{ fila[columna.campo] | date: 'short' }}
+            }
+            @default {
+              {{ fila[columna.campo] }}
+            }
+          }
+        </td>
+      }
+      @if (!soloLectura) {
+        <td>
+          <button
+            pButton
+            type="button"
+            icon="pi pi-pencil"
+            class="p-button-text p-button-sm"
+            (click)="editar.emit(fila)"
+          ></button>
+          <button
+            pButton
+            type="button"
+            icon="pi pi-trash"
+            class="p-button-text p-button-sm p-button-danger"
+            (click)="confirmarEliminar(fila)"
+          ></button>
+        </td>
+      }
+    </tr>
+  </ng-template>
+
+  <ng-template #emptymessage>
+    <tr>
+      <td [attr.colspan]="columnas.length + (soloLectura ? 0 : 1)">Sin registros.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<div class="tabla-generica-pie">
+  <button pButton type="button" label="Anterior" [disabled]="pagina() === 1" (click)="irAPaginaAnterior()"></button>
+  <span>Página {{ pagina() }}</span>
+  <button
+    pButton
+    type="button"
+    label="Siguiente"
+    [disabled]="!hayPaginaSiguiente()"
+    (click)="irAPaginaSiguiente()"
+  ></button>
+</div>

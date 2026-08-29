@@ -1,0 +1,48 @@
+<h1>Sucursales</h1>
+
+<app-tabla-generica
+  endpoint="/sucursales"
+  [columnas]="columnas"
+  (crear)="abrirCrear()"
+  (editar)="abrirEditar($event)"
+/>
+
+<p-dialog header="Sucursal" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '400px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="ciudad">Ciudad</label>
+    <p-select
+      inputId="ciudad"
+      formControlName="ciudad_id"
+      [options]="ciudades()"
+      optionLabel="nombre"
+      optionValue="id"
+      placeholder="Seleccioná una ciudad"
+    />
+
+    <label for="codigo">Código</label>
+    <input id="codigo" pInputText formControlName="codigo" />
+
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="direccion">Dirección</label>
+    <input id="direccion" pInputText formControlName="direccion" />
+
+    <label for="telefono">Teléfono</label>
+    <input id="telefono" pInputText formControlName="telefono" />
+
+    <label class="formulario__checkbox">
+      <p-checkbox formControlName="es_deposito" [binary]="true" />
+      Es depósito
+    </label>
+
+    @if (editando()) {
+      <label class="formulario__checkbox">
+        <p-checkbox formControlName="activo" [binary]="true" />
+        Activo
+      </label>
+    }
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

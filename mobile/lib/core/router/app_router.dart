@@ -5,7 +5,9 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/registro_screen.dart';
 import '../../features/auth/state/auth_controller.dart';
 import '../../features/auth/state/auth_state.dart';
-import '../../features/home/presentation/home_screen.dart';
+import '../../features/catalogo/presentation/catalogo_screen.dart';
+import '../../features/catalogo/presentation/detalle_screen.dart';
+import '../../features/favoritos/presentation/favoritos_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 
 class _RefrescoDelRouter extends ChangeNotifier {
@@ -42,7 +44,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/registro', builder: (context, state) => const RegistroScreen()),
-      GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+      GoRoute(path: '/home', builder: (context, state) => const CatalogoScreen()),
+      GoRoute(
+        path: '/producto/:id',
+        builder: (context, state) => DetalleScreen(productoId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(path: '/favoritos', builder: (context, state) => const FavoritosScreen()),
     ],
   );
 });

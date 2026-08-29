@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.exceptions import registrar_handlers
+from app.abastecimiento.router import routers as abastecimiento_routers
 from app.catalogo.router import routers as catalogo_routers
 from app.inventario.router import routers as inventario_routers
 from app.organizacion.router import routers as organizacion_routers
@@ -43,5 +44,12 @@ def health(db: Session = Depends(get_db)) -> JSONResponse:
 
 
 # Los routers de cada paquete de negocio se registran acá a medida que existen.
-for router in seguridad_routers + organizacion_routers + catalogo_routers + probador_routers + inventario_routers:
+for router in (
+    seguridad_routers
+    + organizacion_routers
+    + catalogo_routers
+    + probador_routers
+    + inventario_routers
+    + abastecimiento_routers
+):
     app.include_router(router)

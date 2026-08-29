@@ -16,7 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -103,6 +103,10 @@ class Transferencia(Base):
     fecha_recepcion: Mapped[dt.datetime | None]
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuario.id"))
 
+    detalle: Mapped[list["TransferenciaDetalle"]] = relationship(
+        back_populates="transferencia", order_by="TransferenciaDetalle.id"
+    )
+
 
 class TransferenciaDetalle(Base):
     __tablename__ = "transferencia_detalle"
@@ -114,3 +118,5 @@ class TransferenciaDetalle(Base):
     )
     variante_id: Mapped[int] = mapped_column(ForeignKey("producto_variante.id"), nullable=False)
     cantidad: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    transferencia: Mapped[Transferencia] = relationship(back_populates="detalle")

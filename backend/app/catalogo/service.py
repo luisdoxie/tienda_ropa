@@ -452,6 +452,13 @@ def quitar_favorito(db: Session, usuario_id: int, variante_id: int) -> None:
 
 
 def obtener_variante(db: Session, variante_id: int) -> ProductoVariante:
-    """Para que otros paquetes (p. ej. `probador`) validen una variante sin
-    consultar producto_variante directamente."""
+    """Para que otros paquetes (p. ej. `probador`, `inventario`) validen una
+    variante sin consultar producto_variante directamente."""
     return variante_repo.obtener(db, variante_id)
+
+
+def obtener_producto(db: Session, producto_id: int) -> Producto:
+    """Para que otros paquetes (p. ej. `abastecimiento`, para
+    producto_proveedor) validen un producto sin consultar la tabla
+    `producto` directamente."""
+    return producto_repo.obtener(db, producto_id)

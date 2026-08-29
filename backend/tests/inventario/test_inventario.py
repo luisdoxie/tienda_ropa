@@ -155,7 +155,7 @@ def test_saldo_post_coincide_con_suma_acumulada(client, admin_headers, variante_
 
     variante_id, sucursal_id = variante_y_sucursal
     kardex = client.get(
-        f"/api/v1/inventario/kardex?variante_id={variante_id}&sucursal_id={sucursal_id}", headers=admin_headers
+        f"/api/v1/inventario/movimientos?variante_id={variante_id}&sucursal_id={sucursal_id}", headers=admin_headers
     ).json()
 
     assert len(kardex) == 3
@@ -212,7 +212,7 @@ def test_reservar_no_genera_movimiento(client, admin_headers, variante_y_sucursa
     )
 
     kardex = client.get(
-        f"/api/v1/inventario/kardex?variante_id={variante_id}&sucursal_id={sucursal_id}", headers=admin_headers
+        f"/api/v1/inventario/movimientos?variante_id={variante_id}&sucursal_id={sucursal_id}", headers=admin_headers
     ).json()
     assert len(kardex) == 1  # solo la recepción; la reserva no aparece acá
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class MovimientoCrear(BaseModel):
@@ -85,3 +85,97 @@ class TipoMovimientoRespuesta(BaseModel):
     nombre: str
     signo: int
     afecta_costo: bool
+
+
+class LimitesActualizar(BaseModel):
+    stock_minimo: int | None = Field(default=None, ge=0)
+    stock_maximo: int | None = Field(default=None, ge=0)
+
+
+class DisponibilidadRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    variante_id: int
+    sucursal_id: int
+    cantidad_disponible: int
+
+
+# ---- Vista vw_inventario_consolidado (también usada por /alertas) -----------
+
+
+class ConsolidadoRespuesta(BaseModel):
+    producto_id: int
+    producto: str
+    variante_id: int
+    sku: str
+    talla: str
+    color: str
+    sucursal_id: int
+    sucursal: str
+    cantidad_fisica: int
+    cantidad_reservada: int
+    cantidad_disponible: int
+    stock_minimo: int
+    costo_promedio: Decimal
+    valor_inventario: Decimal
+
+
+class ValuacionRespuesta(BaseModel):
+    sucursal_id: int
+    sucursal: str
+    valor_total: Decimal
+
+
+# ---- Ajustes ------------------------------------------------------------------
+
+
+class AjusteCrear(BaseModel):
+    variante_id: int
+    sucursal_id: int
+    # Positivo: sobrante (ajuste_positivo). Negativo: faltante (ajuste_negativo).
+    cantidad: int
+    observacion: str | None = Field(default=None, max_length=300)
+
+    @field_validator("cantidad")
+    @classmethod
+    def _cantidad_no_puede_ser_cero(cls, valor: int) -> int:
+        if valor == 0:
+            raise ValueError("cantidad no puede ser cero")
+        return valor
+
+
+# ---- Transferencias -----------------------------------------------------------
+
+
+class TransferenciaDetalleCrear(BaseModel):
+    variante_id: int
+    cantidad: int = Field(gt=0)
+
+
+class TransferenciaDetalleRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    variante_id: int
+    cantidad: int
+
+
+class TransferenciaCrear(BaseModel):
+    codigo: str = Field(max_length=20)
+    sucursal_origen_id: int
+    sucursal_destino_id: int
+    detalle: list[TransferenciaDetalleCrear] = Field(min_length=1)
+
+
+class TransferenciaRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    codigo: str
+    sucursal_origen_id: int
+    sucursal_destino_id: int
+    estado: str
+    fecha_envio: dt.datetime | None
+    fecha_recepcion: dt.datetime | None
+    usuario_id: int | None
+    detalle: list[TransferenciaDetalleRespuesta]

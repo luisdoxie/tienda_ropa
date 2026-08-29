@@ -117,9 +117,13 @@ def registrar_movimiento(
     return movimiento
 
 
-def reservar_stock(db: Session, variante_id: int, sucursal_id: int, cantidad: int) -> Stock:
+def reservar_stock(
+    db: Session, variante_id: int, sucursal_id: int, cantidad: int, commit: bool = True
+) -> Stock:
     """Incrementa cantidad_reservada. Nunca toca cantidad_fisica ni genera
-    movimiento de inventario."""
+    movimiento de inventario. `commit=False`: ver el comentario en
+    registrar_movimiento (lo usa `reservas.service.crear_reserva`, que
+    reserva varias líneas como una sola transacción)."""
     if cantidad <= 0:
         raise DomainError("cantidad debe ser positiva")
 
@@ -132,14 +136,20 @@ def reservar_stock(db: Session, variante_id: int, sucursal_id: int, cantidad: in
         raise ConflictoError("No hay stock disponible suficiente para reservar")
 
     stock.cantidad_reservada += cantidad
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     db.refresh(stock)
     return stock
 
 
-def liberar_stock(db: Session, variante_id: int, sucursal_id: int, cantidad: int) -> Stock:
+def liberar_stock(
+    db: Session, variante_id: int, sucursal_id: int, cantidad: int, commit: bool = True
+) -> Stock:
     """Decrementa cantidad_reservada. Nunca toca cantidad_fisica ni genera
-    movimiento de inventario."""
+    movimiento de inventario. `commit=False`: ver el comentario en
+    registrar_movimiento."""
     if cantidad <= 0:
         raise DomainError("cantidad debe ser positiva")
 
@@ -148,7 +158,10 @@ def liberar_stock(db: Session, variante_id: int, sucursal_id: int, cantidad: int
         raise ConflictoError("No se puede liberar más de lo reservado")
 
     stock.cantidad_reservada -= cantidad
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     db.refresh(stock)
     return stock
 

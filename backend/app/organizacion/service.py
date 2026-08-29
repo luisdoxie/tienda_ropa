@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictoError
-from app.organizacion.models import HorarioSucursal, Sucursal
+from app.organizacion.models import Empleado, HorarioSucursal, Sucursal
 from app.organizacion.repository import EmpleadoRepository, HorarioRepository, SucursalRepository
 from app.organizacion.schemas import EmpleadoActualizar, EmpleadoCrear, HorarioActualizar, HorarioCrear
 from app.seguridad import service as seguridad_service
@@ -15,6 +15,19 @@ def obtener_sucursal(db: Session, sucursal_id: int) -> Sucursal:
     """Para que otros paquetes (p. ej. `inventario`) validen una sucursal
     sin consultar la tabla `sucursal` directamente."""
     return sucursal_repo.obtener(db, sucursal_id)
+
+
+def obtener_horario_dia(db: Session, sucursal_id: int, dia_semana: int) -> HorarioSucursal | None:
+    """Para que `reservas` valide que una franja horaria cae dentro del
+    horario de atención de la sucursal, sin consultar horario_sucursal
+    directamente."""
+    return horario_repo.obtener_por_dia(db, sucursal_id, dia_semana)
+
+
+def listar_empleados_sucursal(db: Session, sucursal_id: int) -> list[Empleado]:
+    """Para que `reservas` notifique a los empleados de una sucursal sin
+    consultar la tabla `empleado` directamente."""
+    return empleado_repo.listar_por_sucursal(db, sucursal_id)
 
 
 def crear_horario(db: Session, sucursal_id: int, datos: HorarioCrear) -> HorarioSucursal:

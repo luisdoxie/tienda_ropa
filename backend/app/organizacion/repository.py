@@ -102,3 +102,12 @@ class EmpleadoRepository(CRUDBase[Empleado, EmpleadoCrear, EmpleadoActualizar]):
 
     def obtener_por_usuario(self, db: Session, usuario_id: int) -> Empleado | None:
         return db.scalar(select(Empleado).where(Empleado.usuario_id == usuario_id))
+
+    def listar_por_sucursal(self, db: Session, sucursal_id: int) -> list[Empleado]:
+        return list(
+            db.scalars(
+                select(Empleado).where(
+                    Empleado.sucursal_id == sucursal_id, Empleado.activo.is_(True)
+                )
+            )
+        )

@@ -13,7 +13,7 @@ import datetime as dt
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -120,3 +120,13 @@ def require_permission(codigo: str):
         return usuario
 
     return verificador
+
+
+def require_service_token(x_service_token: str | None = Header(default=None)) -> None:
+    """Protege endpoints de tareas de sistema (cron/scheduler), que no
+    tienen un usuario logueado detrás. No es un JWT: es un secreto fijo
+    compartido, configurado por variable de entorno (TAREAS_TOKEN). Si no
+    está configurado, la tarea queda inhabilitada (nunca compara contra
+    una cadena vacía)."""
+    if not settings.tareas_token or x_service_token != settings.tareas_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de servicio inválido")

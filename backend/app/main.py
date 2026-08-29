@@ -11,9 +11,11 @@ from app.core.database import get_db
 from app.core.exceptions import registrar_handlers
 from app.abastecimiento.router import routers as abastecimiento_routers
 from app.catalogo.router import routers as catalogo_routers
+from app.core.router import routers as core_routers
 from app.inventario.router import routers as inventario_routers
 from app.organizacion.router import routers as organizacion_routers
 from app.probador.router import routers as probador_routers
+from app.reservas.router import routers as reservas_routers
 from app.seguridad.router import routers as seguridad_routers
 
 logger = logging.getLogger(__name__)
@@ -45,11 +47,13 @@ def health(db: Session = Depends(get_db)) -> JSONResponse:
 
 # Los routers de cada paquete de negocio se registran acá a medida que existen.
 for router in (
-    seguridad_routers
+    core_routers
+    + seguridad_routers
     + organizacion_routers
     + catalogo_routers
     + probador_routers
     + inventario_routers
     + abastecimiento_routers
+    + reservas_routers
 ):
     app.include_router(router)

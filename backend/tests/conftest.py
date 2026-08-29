@@ -2,6 +2,7 @@ import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "clave-de-pruebas")
+os.environ.setdefault("TAREAS_TOKEN", "token-de-pruebas")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,14 +14,17 @@ from app.core.database import Base, get_db
 from app.main import app
 from app.abastecimiento import models as _abastecimiento_models  # noqa: F401  (registra las tablas)
 from app.catalogo import models as _catalogo_models  # noqa: F401  (registra las tablas)
+from app.core import models as _core_models  # noqa: F401  (registra las tablas)
 from app.inventario import models as _inventario_models  # noqa: F401  (registra las tablas)
 from app.inventario.repository import VW_INVENTARIO_CONSOLIDADO_SQL
 from app.organizacion import models as _organizacion_models  # noqa: F401  (registra las tablas)
 from app.probador import models as _probador_models  # noqa: F401  (registra las tablas)
+from app.reservas import models as _reservas_models  # noqa: F401  (registra las tablas)
 from app.seguridad import models as _seguridad_models  # noqa: F401  (registra las tablas)
 from app.seguridad.repository import UsuarioRepository
 from app.seguridad.schemas import UsuarioCrear
 from scripts.seed_inventario import seed as seed_inventario
+from scripts.seed_reservas import seed as seed_reservas
 from scripts.seed_seguridad import seed as seed_seguridad
 
 
@@ -38,6 +42,7 @@ def db_session():
     session = TestingSessionLocal()
     seed_seguridad(session)
     seed_inventario(session)
+    seed_reservas(session)
     try:
         yield session
     finally:

@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     cloudinary_api_key: str = ""
     cloudinary_api_secret: str = ""
 
+    # Token fijo (no JWT) para tareas de sistema (cron/scheduler), p. ej.
+    # POST /api/v1/tareas/expirar-reservas. Vacío por defecto: en ese caso
+    # require_service_token() rechaza cualquier llamada, así que hay que
+    # configurarlo explícitamente en el entorno para habilitar la tarea.
+    tareas_token: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

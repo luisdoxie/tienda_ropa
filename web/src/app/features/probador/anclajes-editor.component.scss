@@ -1,0 +1,133 @@
+.ayuda {
+  color: var(--fs-texto-tenue);
+  font-size: 13px;
+  max-width: 640px;
+}
+
+.carga,
+.subir {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-2);
+  margin-bottom: var(--fs-espacio-3);
+
+  label {
+    font-size: 12px;
+    color: var(--fs-texto-tenue);
+  }
+
+  input[type='number'] {
+    width: 120px;
+  }
+}
+
+.lista-assets {
+  display: flex;
+  gap: var(--fs-espacio-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--fs-espacio-4);
+}
+
+.asset-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-2);
+  padding: var(--fs-espacio-2) var(--fs-espacio-3);
+  border: 1px solid var(--fs-borde);
+  border-radius: var(--fs-radio);
+  background: var(--fs-fondo);
+  cursor: pointer;
+  font-size: 13px;
+
+  &.activo {
+    border-color: var(--fs-acento);
+    background: var(--fs-fondo-alterno);
+  }
+}
+
+.editor {
+  display: flex;
+  gap: var(--fs-espacio-6);
+  align-items: flex-start;
+}
+
+.lienzo {
+  position: relative;
+  display: inline-block;
+  max-width: 560px;
+  border: 1px solid var(--fs-borde);
+  border-radius: var(--fs-radio);
+  overflow: hidden;
+  // Fondo a cuadros para que se note el canal alfa del PNG.
+  background-image:
+    linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: crosshair;
+    user-select: none;
+  }
+}
+
+.capa-anclas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.marcador {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fs-error);
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px var(--fs-error);
+  cursor: grab;
+
+  span {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 11px;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+  min-width: 200px;
+
+  label {
+    font-size: 12px;
+    color: var(--fs-texto-tenue);
+    margin-top: var(--fs-espacio-2);
+  }
+}
+
+.plantillas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fs-espacio-2);
+}

@@ -40,6 +40,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/sucursales/sucursales.component').then((m) => m.SucursalesComponent),
       },
+      {
+        path: 'probador',
+        canActivate: [permisoGuard('probador.gestionar')],
+        loadComponent: () =>
+          import('./features/probador/anclajes-editor.component').then((m) => m.AnclajesEditorComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

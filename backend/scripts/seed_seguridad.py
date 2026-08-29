@@ -41,6 +41,7 @@ PERMISOS: list[tuple[str, str, str]] = [
     ("pagos.gestionar", "pagos", "Cobrar en caja y anular pagos"),
     ("reportes.ver", "reportes", "Consultar reportes y el dashboard"),
     ("probador.usar", "probador", "Usar el vestidor virtual"),
+    ("probador.gestionar", "probador", "Subir y validar assets del probador (editor de anclajes)"),
 ]
 
 PERMISOS_POR_ROL: dict[str, list[str]] = {

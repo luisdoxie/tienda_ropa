@@ -446,3 +446,12 @@ def agregar_favorito(db: Session, usuario_id: int, variante_id: int) -> Favorito
 def quitar_favorito(db: Session, usuario_id: int, variante_id: int) -> None:
     cliente = seguridad_service.obtener_perfil_cliente(db, usuario_id)
     favorito_repo.quitar(db, cliente.id, variante_id)
+
+
+# ---- Punto de entrada para otros paquetes ------------------------------------
+
+
+def obtener_variante(db: Session, variante_id: int) -> ProductoVariante:
+    """Para que otros paquetes (p. ej. `probador`) validen una variante sin
+    consultar producto_variante directamente."""
+    return variante_repo.obtener(db, variante_id)

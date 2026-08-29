@@ -24,6 +24,7 @@ config.set_main_option("sqlalchemy.url", get_settings().database_url)
 # Los modelos de cada paquete se importan acá a medida que existen, para
 # que se registren en Base.metadata y autogenerate los detecte.
 from app.catalogo import models as catalogo_models  # noqa: F401
+from app.inventario import models as inventario_models  # noqa: F401
 from app.organizacion import models as organizacion_models  # noqa: F401
 from app.probador import models as probador_models  # noqa: F401
 from app.seguridad import models as seguridad_models  # noqa: F401

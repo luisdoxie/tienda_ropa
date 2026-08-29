@@ -12,11 +12,13 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base, get_db
 from app.main import app
 from app.catalogo import models as _catalogo_models  # noqa: F401  (registra las tablas)
+from app.inventario import models as _inventario_models  # noqa: F401  (registra las tablas)
 from app.organizacion import models as _organizacion_models  # noqa: F401  (registra las tablas)
 from app.probador import models as _probador_models  # noqa: F401  (registra las tablas)
 from app.seguridad import models as _seguridad_models  # noqa: F401  (registra las tablas)
 from app.seguridad.repository import UsuarioRepository
 from app.seguridad.schemas import UsuarioCrear
+from scripts.seed_inventario import seed as seed_inventario
 from scripts.seed_seguridad import seed as seed_seguridad
 
 
@@ -31,6 +33,7 @@ def db_session():
     TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     session = TestingSessionLocal()
     seed_seguridad(session)
+    seed_inventario(session)
     try:
         yield session
     finally:

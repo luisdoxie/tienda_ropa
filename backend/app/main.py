@@ -1,10 +1,18 @@
-from fastapi import FastAPI
+import logging
+
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.exceptions import registrar_handlers
 from app.organizacion.router import routers as organizacion_routers
 from app.seguridad.router import routers as seguridad_routers
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -22,8 +30,13 @@ registrar_handlers(app)
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(db: Session = Depends(get_db)) -> JSONResponse:
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("Health check: no se pudo conectar a la base de datos")
+        return JSONResponse(status_code=503, content={"status": "error", "detalle": "base de datos no disponible"})
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 
 # Los routers de cada paquete de negocio se registran acá a medida que existen.

@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,19 @@ class Settings(BaseSettings):
     environment: str = "local"
 
     database_url: str
+
+    @field_validator("database_url")
+    @classmethod
+    def _forzar_driver_psycopg(cls, valor: str) -> str:
+        # Railway inyecta DATABASE_URL como postgres:// o postgresql://
+        # (formato psycopg2). El proyecto usa psycopg 3, así que hay que
+        # forzar el dialecto +psycopg o SQLAlchemy intenta cargar psycopg2,
+        # que ni siquiera está instalado.
+        if valor.startswith("postgres://"):
+            return valor.replace("postgres://", "postgresql+psycopg://", 1)
+        if valor.startswith("postgresql://"):
+            return valor.replace("postgresql://", "postgresql+psycopg://", 1)
+        return valor
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"

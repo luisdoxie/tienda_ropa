@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime as dt
+from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -154,9 +156,143 @@ class ColeccionActualizar(BaseModel):
 
 class ColeccionRespuesta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
     temporada_id: int | None = None
     nombre: str
     descripcion: str | None = None
     activo: bool
+
+
+Genero = Literal["hombre", "mujer", "unisex", "nino"]
+
+# ---- Producto ---------------------------------------------------------------
+
+
+class ProductoCrear(BaseModel):
+    codigo: str = Field(max_length=30)
+    nombre: str = Field(max_length=120)
+    descripcion: str | None = None
+    categoria_id: int
+    material_id: int | None = None
+    temporada_id: int | None = None
+    coleccion_id: int | None = None
+    genero: Genero = "unisex"
+    precio_base: Decimal = Field(ge=0)
+    admite_probador: bool = False
+    tallas_ids: list[int] = Field(min_length=1)
+    colores_ids: list[int] = Field(min_length=1)
+
+
+class ProductoActualizar(BaseModel):
+    codigo: str | None = Field(default=None, max_length=30)
+    nombre: str | None = Field(default=None, max_length=120)
+    descripcion: str | None = None
+    categoria_id: int | None = None
+    material_id: int | None = None
+    temporada_id: int | None = None
+    coleccion_id: int | None = None
+    genero: Genero | None = None
+    precio_base: Decimal | None = Field(default=None, ge=0)
+    admite_probador: bool | None = None
+    activo: bool | None = None
+
+
+class ProductoRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    codigo: str
+    nombre: str
+    descripcion: str | None = None
+    categoria_id: int
+    material_id: int | None = None
+    temporada_id: int | None = None
+    coleccion_id: int | None = None
+    genero: str
+    precio_base: Decimal
+    admite_probador: bool
+    activo: bool
+    creado_en: dt.datetime
+    creado_por: int | None = None
+
+
+# ---- Variantes ---------------------------------------------------------------
+
+
+class VariantesGenerarRequest(BaseModel):
+    """Agrega nuevas tallas/colores a un producto ya creado. La
+    combinatoria que ya existe no se toca ni se duplica."""
+
+    tallas_ids: list[int] = Field(min_length=1)
+    colores_ids: list[int] = Field(min_length=1)
+
+
+class VarianteActualizar(BaseModel):
+    precio: Decimal | None = Field(default=None, ge=0)
+    activo: bool | None = None
+
+
+class VarianteRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    producto_id: int
+    talla_id: int
+    color_id: int
+    sku: str
+    codigo_barras: str | None = None
+    precio: Decimal | None = None
+    precio_efectivo: Decimal
+    activo: bool
+
+    @classmethod
+    def from_modelo(cls, variante) -> "VarianteRespuesta":
+        return cls(
+            id=variante.id,
+            producto_id=variante.producto_id,
+            talla_id=variante.talla_id,
+            color_id=variante.color_id,
+            sku=variante.sku,
+            codigo_barras=variante.codigo_barras,
+            precio=variante.precio,
+            precio_efectivo=variante.precio if variante.precio is not None else variante.producto.precio_base,
+            activo=variante.activo,
+        )
+
+
+# ---- Tabla de medidas ---------------------------------------------------------
+
+
+class TablaMedidaCrear(BaseModel):
+    talla_id: int
+    pecho_min_cm: Decimal | None = None
+    pecho_max_cm: Decimal | None = None
+    cintura_min_cm: Decimal | None = None
+    cintura_max_cm: Decimal | None = None
+    hombros_cm: Decimal | None = None
+    largo_cm: Decimal | None = None
+
+
+class TablaMedidaActualizar(BaseModel):
+    talla_id: int | None = None
+    pecho_min_cm: Decimal | None = None
+    pecho_max_cm: Decimal | None = None
+    cintura_min_cm: Decimal | None = None
+    cintura_max_cm: Decimal | None = None
+    hombros_cm: Decimal | None = None
+    largo_cm: Decimal | None = None
+
+
+class TablaMedidaRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    producto_id: int | None = None
+    categoria_id: int | None = None
+    talla_id: int
+    pecho_min_cm: Decimal | None = None
+    pecho_max_cm: Decimal | None = None
+    cintura_min_cm: Decimal | None = None
+    cintura_max_cm: Decimal | None = None
+    hombros_cm: Decimal | None = None
+    largo_cm: Decimal | None = None

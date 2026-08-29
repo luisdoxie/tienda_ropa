@@ -3,15 +3,18 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import ParametrosPaginacion, parametros_paginacion
-from app.core.security import require_permission
+from app.core.security import get_current_user, require_permission
 from app.catalogo import service
 from app.catalogo.repository import (
     CategoriaRepository,
     ColeccionRepository,
     ColorRepository,
     MaterialRepository,
+    ProductoRepository,
+    TablaMedidaRepository,
     TallaRepository,
     TemporadaRepository,
+    VarianteRepository,
 )
 from app.catalogo.schemas import (
     CategoriaActualizar,
@@ -26,12 +29,21 @@ from app.catalogo.schemas import (
     MaterialActualizar,
     MaterialCrear,
     MaterialRespuesta,
+    ProductoActualizar,
+    ProductoCrear,
+    ProductoRespuesta,
+    TablaMedidaActualizar,
+    TablaMedidaCrear,
+    TablaMedidaRespuesta,
     TallaActualizar,
     TallaCrear,
     TallaRespuesta,
     TemporadaActualizar,
     TemporadaCrear,
     TemporadaRespuesta,
+    VarianteActualizar,
+    VarianteRespuesta,
+    VariantesGenerarRequest,
 )
 
 categoria_repo = CategoriaRepository()
@@ -40,6 +52,9 @@ color_repo = ColorRepository()
 material_repo = MaterialRepository()
 temporada_repo = TemporadaRepository()
 coleccion_repo = ColeccionRepository()
+producto_repo = ProductoRepository()
+variante_repo = VarianteRepository()
+medida_repo = TablaMedidaRepository()
 
 PERMISO_CATALOGO = "catalogo.gestionar"
 admin_requerido = Depends(require_permission(PERMISO_CATALOGO))
@@ -272,6 +287,111 @@ def desactivar_coleccion(coleccion_id: int, db: Session = Depends(get_db)) -> No
     coleccion_repo.desactivar(db, coleccion_id)
 
 
+# ---- /api/v1/productos -----------------------------------------------------
+# Estos son de administración (alta/edición de catálogo). El catálogo que
+# ve el cliente es otro conjunto de endpoints públicos, GET /api/v1/catalogo/*
+# (P2.4) — acá todo requiere permiso de administrador, GET incluido.
+
+productos_router = APIRouter(prefix="/api/v1/productos", tags=["productos"], dependencies=[admin_requerido])
+
+
+@productos_router.get("", response_model=list[ProductoRespuesta])
+def listar_productos(
+    db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
+) -> list[ProductoRespuesta]:
+    return list(producto_repo.listar(db, paginacion))
+
+
+@productos_router.get("/{producto_id}", response_model=ProductoRespuesta)
+def obtener_producto(producto_id: int, db: Session = Depends(get_db)) -> ProductoRespuesta:
+    return producto_repo.obtener(db, producto_id)
+
+
+@productos_router.post("", response_model=ProductoRespuesta, status_code=status.HTTP_201_CREATED)
+def crear_producto(
+    datos: ProductoCrear, usuario=Depends(get_current_user), db: Session = Depends(get_db)
+) -> ProductoRespuesta:
+    return service.crear_producto(db, datos, creado_por=usuario.id)
+
+
+@productos_router.put("/{producto_id}", response_model=ProductoRespuesta)
+def actualizar_producto(
+    producto_id: int, datos: ProductoActualizar, db: Session = Depends(get_db)
+) -> ProductoRespuesta:
+    return service.actualizar_producto(db, producto_id, datos)
+
+
+@productos_router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
+def desactivar_producto(producto_id: int, db: Session = Depends(get_db)) -> None:
+    producto_repo.desactivar(db, producto_id)
+
+
+# ---- /api/v1/productos/{id}/variantes y /api/v1/variantes/{id} -------------
+
+
+@productos_router.get("/{producto_id}/variantes", response_model=list[VarianteRespuesta])
+def listar_variantes(producto_id: int, db: Session = Depends(get_db)) -> list[VarianteRespuesta]:
+    producto_repo.obtener(db, producto_id)
+    variantes = variante_repo.listar_por_producto(db, producto_id)
+    return [VarianteRespuesta.from_modelo(v) for v in variantes]
+
+
+@productos_router.post(
+    "/{producto_id}/variantes", response_model=list[VarianteRespuesta], status_code=status.HTTP_201_CREATED
+)
+def agregar_variantes(
+    producto_id: int, datos: VariantesGenerarRequest, db: Session = Depends(get_db)
+) -> list[VarianteRespuesta]:
+    variantes = service.agregar_variantes(db, producto_id, datos)
+    return [VarianteRespuesta.from_modelo(v) for v in variantes]
+
+
+variantes_router = APIRouter(prefix="/api/v1/variantes", tags=["variantes"], dependencies=[admin_requerido])
+
+
+@variantes_router.put("/{variante_id}", response_model=VarianteRespuesta)
+def actualizar_variante(
+    variante_id: int, datos: VarianteActualizar, db: Session = Depends(get_db)
+) -> VarianteRespuesta:
+    variante = service.actualizar_variante(db, variante_id, datos)
+    return VarianteRespuesta.from_modelo(variante)
+
+
+@variantes_router.delete("/{variante_id}", status_code=status.HTTP_204_NO_CONTENT)
+def desactivar_variante(variante_id: int, db: Session = Depends(get_db)) -> None:
+    service.desactivar_variante(db, variante_id)
+
+
+# ---- /api/v1/productos/{id}/medidas -----------------------------------------
+
+
+@productos_router.get("/{producto_id}/medidas", response_model=list[TablaMedidaRespuesta])
+def listar_medidas(producto_id: int, db: Session = Depends(get_db)) -> list[TablaMedidaRespuesta]:
+    producto_repo.obtener(db, producto_id)
+    return list(medida_repo.listar_por_producto(db, producto_id))
+
+
+@productos_router.post(
+    "/{producto_id}/medidas", response_model=TablaMedidaRespuesta, status_code=status.HTTP_201_CREATED
+)
+def crear_medida(
+    producto_id: int, datos: TablaMedidaCrear, db: Session = Depends(get_db)
+) -> TablaMedidaRespuesta:
+    return service.crear_medida(db, producto_id, datos)
+
+
+@productos_router.put("/{producto_id}/medidas/{medida_id}", response_model=TablaMedidaRespuesta)
+def actualizar_medida(
+    producto_id: int, medida_id: int, datos: TablaMedidaActualizar, db: Session = Depends(get_db)
+) -> TablaMedidaRespuesta:
+    return service.actualizar_medida(db, producto_id, medida_id, datos)
+
+
+@productos_router.delete("/{producto_id}/medidas/{medida_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_medida(producto_id: int, medida_id: int, db: Session = Depends(get_db)) -> None:
+    medida_repo.eliminar(db, producto_id, medida_id)
+
+
 routers = [
     categorias_router,
     tallas_router,
@@ -279,4 +399,6 @@ routers = [
     materiales_router,
     temporadas_router,
     colecciones_router,
+    productos_router,
+    variantes_router,
 ]

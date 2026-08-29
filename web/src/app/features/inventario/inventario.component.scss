@@ -1,0 +1,89 @@
+h1 {
+  margin-bottom: var(--fs-espacio-4);
+}
+
+h3 {
+  margin: var(--fs-espacio-4) 0 var(--fs-espacio-2);
+  font-size: 14px;
+}
+
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-2);
+  margin: var(--fs-espacio-4) 0;
+}
+
+.ayuda {
+  color: var(--fs-texto-tenue);
+  font-size: 12px;
+  margin: var(--fs-espacio-2) 0;
+}
+
+.fila-alerta {
+  background: color-mix(in srgb, var(--fs-error) 8%, transparent);
+}
+
+.cantidad-negativa {
+  color: var(--fs-error);
+}
+
+.total-valuacion {
+  text-align: right;
+  font-weight: 600;
+  margin-top: var(--fs-espacio-2);
+}
+
+.formulario-recepcion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+  max-width: 900px;
+  margin-bottom: var(--fs-espacio-6);
+}
+
+.formulario-fila {
+  display: flex;
+  gap: var(--fs-espacio-4);
+  flex-wrap: wrap;
+
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--fs-espacio-1);
+    flex: 1 1 200px;
+  }
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-1);
+
+  label {
+    font-size: 12px;
+    color: var(--fs-texto-tenue);
+  }
+}
+
+.formulario-acciones {
+  margin-top: var(--fs-espacio-2);
+}
+
+.tabla-lineas {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--fs-espacio-2);
+
+  th,
+  td {
+    text-align: left;
+    padding: var(--fs-espacio-1) var(--fs-espacio-2);
+    border-bottom: 1px solid var(--fs-borde);
+    font-size: 13px;
+  }
+
+  input[type='number'] {
+    width: 100px;
+  }
+}

@@ -46,6 +46,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/probador/anclajes-editor.component').then((m) => m.AnclajesEditorComponent),
       },
+      {
+        path: 'inventario',
+        canActivate: [permisoGuard('inventario.ver')],
+        loadComponent: () =>
+          import('./features/inventario/inventario.component').then((m) => m.InventarioComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

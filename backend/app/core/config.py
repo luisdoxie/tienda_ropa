@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     # GCP. Las credenciales van por GOOGLE_APPLICATION_CREDENTIALS, nunca acá.
     vertex_project_id: str = ""
     vertex_location: str = "us-central1"
-    vertex_modelo: str = "gemini-3.1-flash-image"
+    vertex_modelo: str = "gemini-2.5-flash-image"
 
 
 @lru_cache

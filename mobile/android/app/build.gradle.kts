@@ -6,7 +6,10 @@ plugins {
 
 android {
     namespace = "com.fashionstore.mobile"
-    compileSdk = flutter.compileSdkVersion
+    // flutter.compileSdkVersion (36) se quedó corto: flutter_secure_storage
+    // y permission_handler_android piden compileSdk 37. Es compatible hacia
+    // atrás, así que se fija acá en vez de esperar a que Flutter lo suba.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

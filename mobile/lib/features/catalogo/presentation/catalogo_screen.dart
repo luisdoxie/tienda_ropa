@@ -69,6 +69,11 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
         title: const Text('FashionStore'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.accessibility_new_outlined),
+            tooltip: 'Probador (detección de pose)',
+            onPressed: () => context.push('/probador/pose'),
+          ),
+          IconButton(
             icon: const Icon(Icons.favorite_border),
             tooltip: 'Favoritos',
             onPressed: () => context.push('/favoritos'),

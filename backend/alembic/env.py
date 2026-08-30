@@ -31,6 +31,7 @@ from app.organizacion import models as organizacion_models  # noqa: F401
 from app.probador import models as probador_models  # noqa: F401
 from app.reservas import models as reservas_models  # noqa: F401
 from app.seguridad import models as seguridad_models  # noqa: F401
+from app.ventas import models as ventas_models  # noqa: F401
 
 target_metadata = Base.metadata
 

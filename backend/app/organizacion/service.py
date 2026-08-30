@@ -30,6 +30,13 @@ def listar_empleados_sucursal(db: Session, sucursal_id: int) -> list[Empleado]:
     return empleado_repo.listar_por_sucursal(db, sucursal_id)
 
 
+def obtener_empleado_por_usuario(db: Session, usuario_id: int) -> Empleado | None:
+    """Para que `ventas` resuelva el cajero (empleado) a partir del usuario
+    logueado al registrar una venta presencial, sin consultar `empleado`
+    directamente."""
+    return empleado_repo.obtener_por_usuario(db, usuario_id)
+
+
 def crear_horario(db: Session, sucursal_id: int, datos: HorarioCrear) -> HorarioSucursal:
     sucursal_repo.obtener(db, sucursal_id)  # 404 si no existe / está inactiva
 

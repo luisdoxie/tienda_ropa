@@ -23,6 +23,7 @@ from app.organizacion.router import routers as organizacion_routers
 from app.probador.router import routers as probador_routers
 from app.reservas.router import routers as reservas_routers
 from app.seguridad.router import routers as seguridad_routers
+from app.ventas.router import routers as ventas_routers
 
 logger = logging.getLogger(__name__)
 
@@ -61,5 +62,6 @@ for router in (
     + inventario_routers
     + abastecimiento_routers
     + reservas_routers
+    + ventas_routers
 ):
     app.include_router(router)

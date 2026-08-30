@@ -38,6 +38,8 @@ PERMISOS: list[tuple[str, str, str]] = [
     ("reservas.crear", "reservas", "Crear y cancelar reservas propias"),
     ("ventas.presencial", "ventas", "Registrar ventas en caja"),
     ("ventas.digital", "ventas", "Comprar desde la app o la web"),
+    ("ventas.gestionar_sucursal", "ventas", "Ver las ventas de la sucursal y procesar devoluciones"),
+    ("ventas.gestionar", "ventas", "Crear y editar promociones"),
     ("pagos.gestionar", "pagos", "Cobrar en caja y anular pagos"),
     ("reportes.ver", "reportes", "Consultar reportes y el dashboard"),
     ("probador.usar", "probador", "Usar el vestidor virtual"),
@@ -51,12 +53,14 @@ PERMISOS_POR_ROL: dict[str, list[str]] = {
         "inventario.gestionar",
         "inventario.ver",
         "reservas.gestionar_sucursal",
+        "ventas.gestionar_sucursal",
         "reportes.ver",
     ],
     "cajero": [
         "catalogo.ver",
         "inventario.ver",
         "ventas.presencial",
+        "ventas.gestionar_sucursal",
         "pagos.gestionar",
     ],
     "proveedor": [

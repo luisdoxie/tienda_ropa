@@ -23,9 +23,11 @@ from app.reservas import models as _reservas_models  # noqa: F401  (registra las
 from app.seguridad import models as _seguridad_models  # noqa: F401  (registra las tablas)
 from app.seguridad.repository import UsuarioRepository
 from app.seguridad.schemas import UsuarioCrear
+from app.ventas import models as _ventas_models  # noqa: F401  (registra las tablas)
 from scripts.seed_inventario import seed as seed_inventario
 from scripts.seed_reservas import seed as seed_reservas
 from scripts.seed_seguridad import seed as seed_seguridad
+from scripts.seed_ventas import seed as seed_ventas
 
 
 @pytest.fixture()
@@ -43,6 +45,7 @@ def db_session():
     seed_seguridad(session)
     seed_inventario(session)
     seed_reservas(session)
+    seed_ventas(session)
     try:
         yield session
     finally:
@@ -104,4 +107,25 @@ def cliente_headers(client):
         },
     )
     token = _login(client, "cliente@example.com", "claveSegura123")
+    return {"Authorization": f"Bearer {token}"}
+
+
+def crear_cajero(client, admin_headers, db_session, *, sucursal_id: int, email: str = "cajero@example.com"):
+    """No es un fixture (necesita `sucursal_id`, que cada test arma
+    distinto): un helper que los tests de ventas llaman directo. Devuelve
+    los headers del cajero ya logueado, con su fila en `empleado`."""
+    usuario_repo = UsuarioRepository()
+    usuario = usuario_repo.crear(
+        db_session,
+        UsuarioCrear(nombre="Caja", apellido="Ero", email=email, password="claveSegura123"),
+    )
+    usuario_repo.asignar_roles(db_session, usuario, ["cajero"])
+
+    client.post(
+        "/api/v1/empleados",
+        json={"usuario_id": usuario.id, "sucursal_id": sucursal_id, "cargo": "Cajero"},
+        headers=admin_headers,
+    )
+
+    token = _login(client, email, "claveSegura123")
     return {"Authorization": f"Bearer {token}"}

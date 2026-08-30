@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -481,3 +482,17 @@ def listar_medidas_para_variante(db: Session, variante_id: int) -> list[TablaMed
     if medidas:
         return medidas
     return medida_repo.listar_por_categoria(db, variante.producto.categoria_id)
+
+
+def obtener_precio_efectivo(variante: ProductoVariante) -> Decimal:
+    """Para que `ventas` calcule precio_unitario sin reimplementar la regla
+    de precio (propio de la variante, o heredado de su producto)."""
+    return variante.precio if variante.precio is not None else variante.producto.precio_base
+
+
+def obtener_info_promocion(variante: ProductoVariante) -> tuple[int, int, int | None]:
+    """(producto_id, categoria_id, temporada_id) de una variante, para que
+    `ventas` busque promociones vigentes (promocion_alcance) sin consultar
+    `producto` directamente."""
+    producto = variante.producto
+    return producto.id, producto.categoria_id, producto.temporada_id

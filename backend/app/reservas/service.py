@@ -173,6 +173,23 @@ def listar_reservas_sucursal(db: Session, sucursal_id: int) -> list[Reserva]:
     return reserva_repo.listar_por_sucursal(db, sucursal_id)
 
 
+def obtener_reserva_para_venta(db: Session, reserva_id: int) -> Reserva:
+    """Para que `ventas` (venta presencial en caja) lea, sin consultar
+    `reserva`/`reserva_detalle` directamente, las líneas que un cliente
+    decidió comprar al probarse la reserva -- el cliente de la venta sale
+    de `reserva.cliente_id`, no hace falta que el cajero ya lo conozca. Sin
+    chequeo de propiedad: es una acción de staff, no del cliente dueño.
+    `registrar_seleccion` ya deja la reserva en 'completada' en cuanto
+    todas las líneas tienen decisión (ver su docstring); acá solo se
+    valida que ese paso ya haya pasado -- no hay una transición aparte que
+    "complete" la reserva al vender, esa ya ocurrió antes."""
+    reserva = reserva_repo.obtener(db, reserva_id)
+    estado = estado_repo.obtener(db, reserva.estado_id)
+    if estado.codigo != "completada":
+        raise DomainError(f"La reserva está en estado '{estado.codigo}', todavía no se puede facturar")
+    return reserva
+
+
 # ---- Transiciones ---------------------------------------------------------------
 
 

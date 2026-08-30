@@ -70,8 +70,8 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.accessibility_new_outlined),
-            tooltip: 'Probador (detección de pose)',
-            onPressed: () => context.push('/probador/pose'),
+            tooltip: 'Probador virtual',
+            onPressed: () => context.push('/probador'),
           ),
           IconButton(
             icon: const Icon(Icons.favorite_border),

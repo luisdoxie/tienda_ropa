@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>FashionStore usa la cámara frontal para el probador virtual.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>FashionStore guarda en tu galería la foto que sacás en el probador.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

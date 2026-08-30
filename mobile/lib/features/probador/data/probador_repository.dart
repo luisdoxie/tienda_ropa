@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/activo_probador.dart';
+import '../models/generacion_probador.dart';
 
 class ProbadorRepository {
   ProbadorRepository(this._dio);
@@ -46,5 +47,34 @@ class ProbadorRepository {
       '/probador/sesion',
       data: {'variante_id': varianteId, 'modo': modo, if (duracionSeg != null) 'duracion_seg': duracionSeg},
     );
+  }
+
+  /// POST /probador/generar. Una sola imagen por pedido; el backend nunca
+  /// persiste la foto original (ver P4.3), solo su hash.
+  Future<GeneracionEstado> iniciarGeneracion({
+    required int varianteId,
+    required Uint8List fotoBytes,
+    required String nombreArchivo,
+    required DioMediaType contentType,
+  }) async {
+    final formData = FormData.fromMap({
+      'variante_id': varianteId,
+      'archivo': MultipartFile.fromBytes(fotoBytes, filename: nombreArchivo, contentType: contentType),
+    });
+    final r = await _dio.post<Map<String, dynamic>>('/probador/generar', data: formData);
+    return GeneracionEstado.fromJson(r.data!);
+  }
+
+  Future<GeneracionEstado> consultarGeneracion(int id) async {
+    final r = await _dio.get<Map<String, dynamic>>('/probador/generar/$id');
+    return GeneracionEstado.fromJson(r.data!);
+  }
+
+  /// Descarga genérica de bytes desde una URL absoluta (el resultado
+  /// generado, en Cloudinary): sin caché, cada generación es una imagen
+  /// distinta.
+  Future<Uint8List> descargarBytes(String url) async {
+    final r = await _dio.get<List<int>>(url, options: Options(responseType: ResponseType.bytes));
+    return Uint8List.fromList(r.data!);
   }
 }

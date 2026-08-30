@@ -1,6 +1,7 @@
 import datetime as dt
 import hashlib
 import io
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturoTimeoutError
 
@@ -18,6 +19,8 @@ from app.probador.generativo import ProbadorGenerativoBase, obtener_proveedor_ge
 from app.probador.models import ActivoProbador, ProbadorGeneracion, SesionProbador
 from app.probador.repository import ActivoRepository, GeneracionRepository, SesionRepository
 from app.probador.schemas import AnclajesActualizar, SesionCrear, TallaRecomendadaRespuesta, TallaRequest
+
+logger = logging.getLogger(__name__)
 
 activo_repo = ActivoRepository()
 generacion_repo = GeneracionRepository()
@@ -179,8 +182,12 @@ def _ejecutar_generacion(
         )
         url_resultado = storage.url_probador(public_id)
         generacion_repo.marcar_completado(db, generacion_id, url_resultado, proveedor.nombre)
-    except Exception as exc:  # noqa: BLE001 -- cualquier falla del proveedor externo termina en 'fallido'
-        generacion_repo.marcar_fallido(db, generacion_id, str(exc)[:300])
+    except Exception:  # noqa: BLE001 -- cualquier falla del proveedor externo termina en 'fallido'
+        # El detalle técnico (stacktrace de httpx, del proveedor, etc.)
+        # queda en el log del servidor -- al cliente le llega un mensaje
+        # genérico, nunca la excepción cruda.
+        logger.exception("Falló la generación %s", generacion_id)
+        generacion_repo.marcar_fallido(db, generacion_id, "No se pudo generar la imagen. Probá de nuevo más tarde.")
     finally:
         db.close()
 

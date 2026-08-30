@@ -1,0 +1,172 @@
+<h1>Reservas</h1>
+
+<div class="filtros">
+  <p-select
+    [options]="sucursales()"
+    optionLabel="nombre"
+    optionValue="id"
+    placeholder="Elegí una sucursal"
+    [ngModel]="filtroSucursal()"
+    (ngModelChange)="filtroSucursal.set($event); buscarReservas()"
+  />
+  <p-datepicker
+    placeholder="Filtrar por fecha"
+    dateFormat="dd/mm/yy"
+    [showIcon]="true"
+    [showClear]="true"
+    [ngModel]="filtroFecha()"
+    (ngModelChange)="filtroFecha.set($event)"
+  />
+  <p-select
+    [options]="opcionesEstado"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="filtroEstado()"
+    (ngModelChange)="filtroEstado.set($event)"
+  />
+  <p-button icon="pi pi-refresh" [text]="true" [disabled]="filtroSucursal() === null" (onClick)="buscarReservas()" />
+</div>
+
+<p-table [value]="filasFiltradas()" [loading]="cargando()" styleClass="p-datatable-sm">
+  <ng-template #header>
+    <tr>
+      <th>Código</th>
+      <th>Fecha</th>
+      <th>Franja</th>
+      <th>Estado</th>
+      <th style="width: 6rem">Acciones</th>
+    </tr>
+  </ng-template>
+  <ng-template #body let-reserva>
+    <tr>
+      <td>{{ reserva.codigo }}</td>
+      <td>{{ reserva.fecha_visita }}</td>
+      <td>{{ reserva.hora_visita_desde }} - {{ reserva.hora_visita_hasta }}</td>
+      <td><p-tag [value]="etiquetaEstado(reserva.estado)" [severity]="severidadEstado(reserva.estado)" /></td>
+      <td>
+        <p-button icon="pi pi-eye" [text]="true" size="small" pTooltip="Ver detalle" (onClick)="abrirDetalle(reserva)" />
+      </td>
+    </tr>
+  </ng-template>
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="5">{{ filtroSucursal() === null ? 'Elegí una sucursal.' : 'Sin reservas.' }}</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<!-- Diálogo de detalle -->
+<p-dialog
+  [header]="reservaActual() ? 'Reserva ' + reservaActual()!.codigo : 'Reserva'"
+  [(visible)]="dialogoDetalleVisible"
+  [modal]="true"
+  [style]="{ width: '560px' }"
+>
+  @if (reservaActual(); as reserva) {
+    <div class="detalle-cabecera">
+      <p-tag [value]="etiquetaEstado(reserva.estado)" [severity]="severidadEstado(reserva.estado)" />
+      <span>{{ reserva.fecha_visita }} · {{ reserva.hora_visita_desde }} - {{ reserva.hora_visita_hasta }}</span>
+    </div>
+    @if (reserva.observacion) {
+      <p class="ayuda">{{ reserva.observacion }}</p>
+    }
+
+    <!-- pendiente: checklist de preparación -->
+    @if (reserva.estado === 'pendiente') {
+      <h3>Marcá cada prenda al prepararla</h3>
+      <ul class="checklist">
+        @for (linea of reserva.detalle; track linea.id) {
+          <li>
+            <label>
+              <p-checkbox
+                [binary]="true"
+                [ngModel]="checklistPreparacion()[linea.variante_id]"
+                (ngModelChange)="marcarPreparada(linea.variante_id, $event)"
+              />
+              Variante {{ linea.variante_id }} — cantidad {{ linea.cantidad }}
+            </label>
+          </li>
+        }
+      </ul>
+      <p-button
+        label="Confirmar preparación"
+        icon="pi pi-check"
+        [disabled]="!todoPreparadoMarcado()"
+        [loading]="guardando()"
+        (onClick)="confirmarPreparacion()"
+      />
+    }
+
+    <!-- preparada: confirmar llegada -->
+    @if (reserva.estado === 'preparada') {
+      <h3>Prendas preparadas</h3>
+      <ul class="checklist">
+        @for (linea of reserva.detalle; track linea.id) {
+          <li>Variante {{ linea.variante_id }} — cantidad {{ linea.cantidad }}</li>
+        }
+      </ul>
+      <p-button
+        label="Confirmar llegada del cliente"
+        icon="pi pi-user-plus"
+        [loading]="guardando()"
+        (onClick)="confirmarLlegada()"
+      />
+    }
+
+    <!-- en_prueba: registrar selección -->
+    @if (reserva.estado === 'en_prueba') {
+      <h3>¿Qué se llevó el cliente?</h3>
+      <ul class="checklist">
+        @for (linea of reserva.detalle; track linea.id) {
+          <li class="linea-seleccion">
+            <span>Variante {{ linea.variante_id }} — cantidad {{ linea.cantidad }}</span>
+            <p-selectbutton
+              [options]="opcionesCompra"
+              optionLabel="label"
+              optionValue="value"
+              [ngModel]="seleccionLineas()[linea.variante_id]"
+              (ngModelChange)="elegirCompra(linea.variante_id, $event)"
+            />
+          </li>
+        }
+      </ul>
+      <p-button
+        label="Confirmar selección"
+        icon="pi pi-check"
+        [disabled]="!todaLaSeleccionDecidida()"
+        [loading]="guardando()"
+        (onClick)="confirmarSeleccion()"
+      />
+    }
+
+    <!-- estados finales: solo lectura -->
+    @if (reserva.estado === 'completada' || reserva.estado === 'cancelada' || reserva.estado === 'expirada') {
+      <h3>Prendas</h3>
+      <ul class="checklist">
+        @for (linea of reserva.detalle; track linea.id) {
+          <li>
+            Variante {{ linea.variante_id }} — cantidad {{ linea.cantidad }}
+            @if (linea.seleccionada === true) {
+              <p-tag value="Comprada" severity="success" />
+            } @else if (linea.seleccionada === false) {
+              <p-tag value="No comprada" severity="danger" />
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    <h3>Historial</h3>
+    <ul class="historial">
+      @for (item of reserva.historial; track item.id) {
+        <li>
+          <strong>{{ etiquetaEstado(item.estado) }}</strong>
+          <span class="historial-fecha">{{ item.creado_en | date: 'short' }}</span>
+          @if (item.comentario) {
+            <div class="historial-comentario">{{ item.comentario }}</div>
+          }
+        </li>
+      }
+    </ul>
+  }
+</p-dialog>

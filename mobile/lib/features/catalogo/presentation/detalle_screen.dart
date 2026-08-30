@@ -1,8 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../favoritos/state/favoritos_controller.dart';
+import '../../reservas/models/item_reserva_temporal.dart';
+import '../../reservas/state/carrito_reserva_controller.dart';
+import '../../reservas/state/reservas_providers.dart';
 import '../../tracking/models/evento.dart';
 import '../../tracking/state/tracking_service.dart';
 import '../models/catalogo_detalle.dart';
@@ -26,9 +30,24 @@ class _DetalleScreenState extends ConsumerState<DetalleScreen> {
   Widget build(BuildContext context) {
     final asyncDetalle = ref.watch(detalleProductoProvider(widget.productoId));
 
+    final cantidadEnCarrito = ref.watch(carritoReservaProvider).length;
+
     return Scaffold(
       backgroundColor: AppColors.fondo,
-      appBar: AppBar(title: const Text('Detalle')),
+      appBar: AppBar(
+        title: const Text('Detalle'),
+        actions: [
+          IconButton(
+            icon: Badge(
+              label: Text('$cantidadEnCarrito'),
+              isLabelVisible: cantidadEnCarrito > 0,
+              child: const Icon(Icons.event_note_outlined),
+            ),
+            tooltip: 'Ver reserva',
+            onPressed: () => context.push('/reserva/confirmar'),
+          ),
+        ],
+      ),
       body: asyncDetalle.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.acento)),
         error: (error, stack) => const Center(child: Text('No se pudo cargar la prenda.')),
@@ -101,6 +120,9 @@ class _Contenido extends ConsumerWidget {
                 'Bs ${precio.toStringAsFixed(2)}',
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.acento),
               ),
+              const SizedBox(height: AppSpacing.md),
+              if (variante != null)
+                _BotonAgregarReserva(detalle: detalle, variante: variante, tallaId: tallaId!, colorId: colorId!),
               const SizedBox(height: AppSpacing.lg),
 
               const Text('Talla', style: TextStyle(color: AppColors.textoTenue, fontSize: 12)),
@@ -168,7 +190,7 @@ class _Contenido extends ConsumerWidget {
               const SizedBox(height: AppSpacing.lg),
               const Text('Disponibilidad por sucursal', style: TextStyle(color: AppColors.textoTenue, fontSize: 12)),
               const SizedBox(height: AppSpacing.xs),
-              const _DisponibilidadPorSucursal(),
+              _DisponibilidadPorSucursal(varianteId: variante?.id),
             ],
           ),
         ),
@@ -229,29 +251,123 @@ class _BotonFavorito extends ConsumerWidget {
 }
 
 class _DisponibilidadPorSucursal extends ConsumerWidget {
-  const _DisponibilidadPorSucursal();
+  const _DisponibilidadPorSucursal({required this.varianteId});
+
+  final int? varianteId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (varianteId == null) {
+      return const Text(
+        'Elegí talla y color para ver la disponibilidad.',
+        style: TextStyle(color: AppColors.textoTenue, fontSize: 13),
+      );
+    }
+
     final asyncSucursales = ref.watch(sucursalesRefProvider);
+    final asyncDisponibilidad = ref.watch(disponibilidadPorVarianteProvider(varianteId!));
 
     return asyncSucursales.when(
       loading: () => const LinearProgressIndicator(),
       error: (e, s) => const Text('No se pudo cargar la lista de sucursales.'),
-      data: (sucursales) => Column(
-        children: [
-          for (final sucursal in sucursales)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.storefront_outlined, color: AppColors.textoTenue),
-              title: Text(sucursal.nombre),
-              // TODO(P3.1): hoy el backend todavía no calcula stock real
-              // por sucursal (paquete `inventario`). En cuanto exista, acá
-              // se muestra disponible/agotado real en vez de este texto.
-              trailing: const Text('Consultar en tienda', style: TextStyle(color: AppColors.textoTenue, fontSize: 12)),
-            ),
-        ],
+      data: (sucursales) => asyncDisponibilidad.when(
+        loading: () => const LinearProgressIndicator(),
+        error: (e, s) => const Text('No se pudo cargar la disponibilidad.'),
+        data: (disponibilidad) {
+          final porSucursal = {for (final d in disponibilidad) d.sucursalId: d.cantidadDisponible};
+          return Column(
+            children: [
+              for (final sucursal in sucursales)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.storefront_outlined, color: AppColors.textoTenue),
+                  title: Text(sucursal.nombre),
+                  trailing: Builder(
+                    builder: (context) {
+                      final cantidad = porSucursal[sucursal.id] ?? 0;
+                      return Text(
+                        cantidad > 0 ? 'Disponible ($cantidad)' : 'Agotado',
+                        style: TextStyle(
+                          color: cantidad > 0 ? AppColors.exito : AppColors.textoTenue,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
+  }
+}
+
+class _BotonAgregarReserva extends ConsumerWidget {
+  const _BotonAgregarReserva({
+    required this.detalle,
+    required this.variante,
+    required this.tallaId,
+    required this.colorId,
+  });
+
+  final CatalogoDetalle detalle;
+  final VarianteCatalogo variante;
+  final int tallaId;
+  final int colorId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncTallas = ref.watch(tallasRefProvider);
+    final asyncColores = ref.watch(coloresRefProvider);
+    final enCarrito = ref.watch(carritoReservaProvider).any((item) => item.varianteId == variante.id);
+
+    return asyncTallas.maybeWhen(
+      data: (tallas) => asyncColores.maybeWhen(
+        data: (colores) {
+          final talla = tallas.where((t) => t.id == tallaId).firstOrNull;
+          final color = colores.where((c) => c.id == colorId).firstOrNull;
+          final imagenUrl = detalle.imagenes.isNotEmpty ? detalle.imagenes.first.url : null;
+
+          return OutlinedButton.icon(
+            onPressed: enCarrito
+                ? null
+                : () {
+                    ref
+                        .read(carritoReservaProvider.notifier)
+                        .agregar(
+                          ItemReservaTemporal(
+                            varianteId: variante.id,
+                            productoNombre: detalle.nombre,
+                            sku: variante.sku,
+                            tallaCodigo: talla?.codigo ?? '',
+                            colorNombre: color?.nombre ?? '',
+                            imagenUrl: imagenUrl,
+                          ),
+                        );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Agregado a tu reserva'),
+                        action: SnackBarAction(label: 'Ver', onPressed: () => context.push('/reserva/confirmar')),
+                      ),
+                    );
+                  },
+            icon: Icon(enCarrito ? Icons.check : Icons.event_note_outlined),
+            label: Text(enCarrito ? 'Agregado a la reserva' : 'Agregar a reserva'),
+          );
+        },
+        orElse: () => const SizedBox.shrink(),
+      ),
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+extension _PrimeroOnulo<T> on Iterable<T> {
+  T? get firstOrNull {
+    final iterator = this.iterator;
+    if (iterator.moveNext()) return iterator.current;
+    return null;
   }
 }

@@ -68,6 +68,12 @@ class UsuarioRepository(CRUDBase[Usuario, UsuarioCrear, UsuarioActualizar]):
 
 
 class ClienteRepository:
+    def obtener(self, db: Session, cliente_id: int) -> Cliente:
+        cliente = db.get(Cliente, cliente_id)
+        if cliente is None:
+            raise NoEncontradoError("Cliente no encontrado")
+        return cliente
+
     def obtener_por_usuario(self, db: Session, usuario_id: int) -> Cliente:
         cliente = db.scalar(select(Cliente).where(Cliente.usuario_id == usuario_id))
         if cliente is None:

@@ -177,6 +177,17 @@ def test_transicion_invalida_falla(client, admin_headers, cliente_headers, conte
     assert respuesta.status_code == 400
 
 
+def test_preparar_notifica_al_cliente(client, admin_headers, cliente_headers, contexto):
+    reserva = client.post("/api/v1/reservas", json=_payload_reserva(contexto), headers=cliente_headers).json()
+    client.put(f"/api/v1/reservas/{reserva['id']}/preparar", headers=admin_headers)
+
+    notificaciones = client.get("/api/v1/notificaciones", headers=cliente_headers).json()
+    de_esta_reserva = [n for n in notificaciones if n["referencia_id"] == reserva["id"]]
+    assert len(de_esta_reserva) == 1
+    assert de_esta_reserva[0]["tipo"] == "reserva_preparada"
+    assert de_esta_reserva[0]["leida"] is False
+
+
 def test_flujo_completo_hasta_completada(client, admin_headers, cliente_headers, contexto):
     reserva = client.post("/api/v1/reservas", json=_payload_reserva(contexto), headers=cliente_headers).json()
     reserva_id = reserva["id"]

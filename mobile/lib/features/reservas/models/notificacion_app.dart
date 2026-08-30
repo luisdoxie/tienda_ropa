@@ -1,0 +1,29 @@
+class NotificacionApp {
+  const NotificacionApp({
+    required this.id,
+    required this.titulo,
+    required this.mensaje,
+    required this.tipo,
+    required this.referenciaId,
+    required this.leida,
+    required this.creadoEn,
+  });
+
+  factory NotificacionApp.fromJson(Map<String, dynamic> json) => NotificacionApp(
+    id: json['id'] as int,
+    titulo: json['titulo'] as String,
+    mensaje: json['mensaje'] as String?,
+    tipo: json['tipo'] as String?,
+    referenciaId: json['referencia_id'] as int?,
+    leida: json['leida'] as bool,
+    creadoEn: DateTime.parse(json['creado_en'] as String),
+  );
+
+  final int id;
+  final String titulo;
+  final String? mensaje;
+  final String? tipo;
+  final int? referenciaId;
+  final bool leida;
+  final DateTime creadoEn;
+}

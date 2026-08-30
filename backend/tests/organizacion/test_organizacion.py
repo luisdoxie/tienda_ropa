@@ -131,6 +131,33 @@ def test_horarios_distintos_dias_se_pueden_crear(client, admin_headers):
     assert len(listado.json()) == 3
 
 
+def test_horarios_get_es_publico(client, admin_headers):
+    # El cliente (Flutter) necesita el horario de la sucursal para elegir
+    # franja al reservar, sin ser administrador.
+    ciudad = crear_ciudad(client, admin_headers).json()
+    sucursal = crear_sucursal(client, admin_headers, ciudad["id"]).json()
+    client.post(
+        f"/api/v1/sucursales/{sucursal['id']}/horarios",
+        json={"dia_semana": 1, "hora_apertura": "08:00:00", "hora_cierre": "18:00:00"},
+        headers=admin_headers,
+    )
+
+    respuesta = client.get(f"/api/v1/sucursales/{sucursal['id']}/horarios")
+    assert respuesta.status_code == 200
+    assert len(respuesta.json()) == 1
+
+
+def test_horarios_post_sigue_requiriendo_admin(client, cliente_headers, admin_headers):
+    ciudad = crear_ciudad(client, admin_headers).json()
+    sucursal = crear_sucursal(client, admin_headers, ciudad["id"]).json()
+    respuesta = client.post(
+        f"/api/v1/sucursales/{sucursal['id']}/horarios",
+        json={"dia_semana": 1, "hora_apertura": "08:00:00", "hora_cierre": "18:00:00"},
+        headers=cliente_headers,
+    )
+    assert respuesta.status_code == 403
+
+
 # ---- Empleados ----------------------------------------------------------------
 
 

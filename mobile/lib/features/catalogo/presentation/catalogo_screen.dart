@@ -74,6 +74,11 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             onPressed: () => context.push('/favoritos'),
           ),
           IconButton(
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Mis reservas',
+            onPressed: () => context.push('/reservas'),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar sesión',
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),

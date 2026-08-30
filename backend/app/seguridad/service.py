@@ -112,6 +112,13 @@ def obtener_perfil_cliente(db: Session, usuario_id: int) -> Cliente:
     return cliente_repo.obtener_por_usuario(db, usuario_id)
 
 
+def obtener_cliente(db: Session, cliente_id: int) -> Cliente:
+    """Para que otros paquetes (p. ej. `reservas`, para notificar al dueño
+    de una reserva) resuelvan el usuario_id de un cliente sin consultar
+    la tabla `cliente` directamente."""
+    return cliente_repo.obtener(db, cliente_id)
+
+
 def actualizar_perfil_cliente(
     db: Session, usuario_id: int, datos: ClientePerfilActualizar
 ) -> Cliente:

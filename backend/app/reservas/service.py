@@ -181,6 +181,18 @@ def preparar_reserva(db: Session, reserva_id: int, usuario_id: int) -> Reserva:
     _transicionar(db, reserva, "preparada", usuario_id, "Prendas preparadas", commit=False)
     for linea in reserva.detalle:
         linea.preparada = True
+
+    cliente = seguridad_service.obtener_cliente(db, reserva.cliente_id)
+    core_service.crear_notificacion(
+        db,
+        cliente.usuario_id,
+        titulo="Tu reserva está lista",
+        mensaje=f"La reserva {reserva.codigo} ya tiene las prendas preparadas, te esperamos.",
+        tipo="reserva_preparada",
+        referencia_id=reserva.id,
+        commit=False,
+    )
+
     db.commit()
     db.refresh(reserva)
     return reserva

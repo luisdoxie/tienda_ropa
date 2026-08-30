@@ -23,6 +23,12 @@ const ITEMS_MENU: ItemMenu[] = [
   },
   { etiqueta: 'Probador', icono: 'pi pi-camera', ruta: '/probador', permiso: 'probador.gestionar' },
   { etiqueta: 'Inventario', icono: 'pi pi-box', ruta: '/inventario', permiso: 'inventario.ver' },
+  {
+    etiqueta: 'Reservas',
+    icono: 'pi pi-calendar-clock',
+    ruta: '/reservas',
+    permiso: 'reservas.gestionar_sucursal',
+  },
 ];
 
 @Component({

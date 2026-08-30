@@ -105,10 +105,11 @@ def desactivar_sucursal(sucursal_id: int, db: Session = Depends(get_db)) -> None
 
 
 # ---- /api/v1/sucursales/{id}/horarios --------------------------------------
+# GET es público: el horario de atención lo necesita el cliente (Flutter,
+# al elegir franja para una reserva) tanto como el back office. Escribir
+# horarios sigue siendo solo de administración.
 
-horarios_router = APIRouter(
-    prefix="/api/v1/sucursales/{sucursal_id}/horarios", tags=["horarios"], dependencies=[admin_requerido]
-)
+horarios_router = APIRouter(prefix="/api/v1/sucursales/{sucursal_id}/horarios", tags=["horarios"])
 
 
 @horarios_router.get("", response_model=list[HorarioRespuesta])
@@ -117,19 +118,21 @@ def listar_horarios(sucursal_id: int, db: Session = Depends(get_db)) -> list[Hor
     return list(horario_repo.listar_por_sucursal(db, sucursal_id))
 
 
-@horarios_router.post("", response_model=HorarioRespuesta, status_code=status.HTTP_201_CREATED)
+@horarios_router.post(
+    "", response_model=HorarioRespuesta, status_code=status.HTTP_201_CREATED, dependencies=[admin_requerido]
+)
 def crear_horario(sucursal_id: int, datos: HorarioCrear, db: Session = Depends(get_db)) -> HorarioRespuesta:
     return service.crear_horario(db, sucursal_id, datos)
 
 
-@horarios_router.put("/{horario_id}", response_model=HorarioRespuesta)
+@horarios_router.put("/{horario_id}", response_model=HorarioRespuesta, dependencies=[admin_requerido])
 def actualizar_horario(
     sucursal_id: int, horario_id: int, datos: HorarioActualizar, db: Session = Depends(get_db)
 ) -> HorarioRespuesta:
     return service.actualizar_horario(db, sucursal_id, horario_id, datos)
 
 
-@horarios_router.delete("/{horario_id}", status_code=status.HTTP_204_NO_CONTENT)
+@horarios_router.delete("/{horario_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[admin_requerido])
 def eliminar_horario(sucursal_id: int, horario_id: int, db: Session = Depends(get_db)) -> None:
     service.eliminar_horario(db, sucursal_id, horario_id)
 

@@ -52,6 +52,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/inventario/inventario.component').then((m) => m.InventarioComponent),
       },
+      {
+        path: 'reservas',
+        canActivate: [permisoGuard('reservas.gestionar_sucursal')],
+        loadComponent: () =>
+          import('./features/reservas/reservas.component').then((m) => m.ReservasComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

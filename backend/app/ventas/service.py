@@ -176,13 +176,12 @@ def _registrar_venta(
 
     for variante_id, cantidad in lineas:
         variante = variantes[variante_id]
-
-        # 2. Congela el costo ANTES del movimiento de inventario.
-        stock_actual = inventario_service.obtener_stock(db, variante_id, sucursal_id)
-        costo_unitario = stock_actual.costo_promedio
-
         precio_unitario, descuento_unitario, subtotal_linea = _calcular_linea(db, variante, cantidad, hoy)
 
+        # 2. costo_unitario queda NULL acá a propósito: recién se congela
+        # en confirmar_venta(), cuando el pago se aprueba (P5.2) -- hasta
+        # entonces el stock ni siquiera se descontó de verdad, así que no
+        # hay un costo "real" de esta salida todavía que congelar.
         db.add(
             VentaDetalle(
                 venta_id=venta.id,
@@ -190,29 +189,21 @@ def _registrar_venta(
                 cantidad=cantidad,
                 precio_unitario=precio_unitario,
                 descuento_unitario=descuento_unitario,
-                costo_unitario=costo_unitario,
+                costo_unitario=None,
                 subtotal=subtotal_linea,
             )
         )
         subtotal_bruto += precio_unitario * cantidad
         descuento_total += descuento_unitario * cantidad
 
-        # 4. Libera lo reservado (si aplica) antes de descontar físicamente.
-        if reserva_id is not None:
-            inventario_service.liberar_stock(db, variante_id, sucursal_id, cantidad, commit=False)
-
-        # 3. Movimiento de inventario tipo 'venta'.
-        inventario_service.registrar_movimiento(
-            db,
-            variante_id=variante_id,
-            sucursal_id=sucursal_id,
-            tipo_movimiento_codigo="venta",
-            cantidad=cantidad,
-            referencia_tipo="venta",
-            referencia_id=venta.id,
-            usuario_id=usuario_id,
-            commit=False,
-        )
+        # 3./4. Todavía no se toca físicamente el stock (eso es
+        # confirmar_venta): acá solo se RESERVA, para que nadie más se
+        # lleve el mismo stock mientras el pago está pendiente. Si la
+        # venta viene de una reserva, ese stock ya está reservado desde
+        # que se creó la reserva -- reservarlo de nuevo lo dejaría
+        # reservado el doble.
+        if reserva_id is None:
+            inventario_service.reservar_stock(db, variante_id, sucursal_id, cantidad, commit=False)
 
     # 6. Totales.
     venta.subtotal = _redondear(subtotal_bruto)
@@ -225,6 +216,98 @@ def _registrar_venta(
     db.commit()
     db.refresh(venta)
     return venta
+
+
+# ---- Confirmación / anulación (dispara `pagos` al aprobar/rechazar) -----------------
+
+
+def confirmar_venta(db: Session, venta_id: int, *, usuario_id: int | None = None, commit: bool = True) -> Venta:
+    """Para que `pagos` confirme la venta cuando su pago pasa a 'aprobado'
+    (webhook o caja): es recién acá, y no en `_registrar_venta`, donde se
+    descuenta físicamente el stock y se congela costo_unitario -- hasta
+    este momento el stock de la venta solo estaba RESERVADO."""
+    venta = venta_repo.obtener(db, venta_id)
+    estado_actual = estado_repo.obtener(db, venta.estado_id)
+    if estado_actual.codigo != "pendiente_pago":
+        raise DomainError(f"No se puede confirmar una venta en estado '{estado_actual.codigo}'")
+
+    for linea in venta.detalle:
+        # Libera la reserva (la haya hecho _registrar_venta o la reserva
+        # original) antes de descontar, si no registrar_movimiento
+        # rechazaría dejar cantidad_reservada sin respaldo físico.
+        inventario_service.liberar_stock(db, linea.variante_id, venta.sucursal_id, linea.cantidad, commit=False)
+
+        stock_actual = inventario_service.obtener_stock(db, linea.variante_id, venta.sucursal_id)
+        linea.costo_unitario = stock_actual.costo_promedio  # congelado recién ahora
+
+        inventario_service.registrar_movimiento(
+            db,
+            variante_id=linea.variante_id,
+            sucursal_id=venta.sucursal_id,
+            tipo_movimiento_codigo="venta",
+            cantidad=linea.cantidad,
+            referencia_tipo="venta",
+            referencia_id=venta.id,
+            usuario_id=usuario_id,
+            commit=False,
+        )
+
+    estado_pagada = estado_repo.obtener_por_codigo(db, "pagada")
+    venta.estado_id = estado_pagada.id
+
+    if commit:
+        db.commit()
+        db.refresh(venta)
+    else:
+        db.flush()
+    return venta
+
+
+def anular_venta(db: Session, venta_id: int, *, commit: bool = True) -> Venta:
+    """Para que `pagos` anule la venta cuando su pago se rechaza o se
+    reembolsa. Se banca los dos casos posibles: si todavía estaba
+    'pendiente_pago' (nunca se descontó físicamente), solo libera la
+    reserva; si ya estaba 'pagada' (pago aprobado y después reembolsado),
+    reingresa el stock como una devolución total."""
+    venta = venta_repo.obtener(db, venta_id)
+    estado_actual = estado_repo.obtener(db, venta.estado_id)
+
+    if estado_actual.codigo == "anulada":
+        return venta  # ya estaba anulada: no-op, no un error
+
+    if estado_actual.codigo == "pendiente_pago":
+        for linea in venta.detalle:
+            inventario_service.liberar_stock(db, linea.variante_id, venta.sucursal_id, linea.cantidad, commit=False)
+    elif estado_actual.codigo == "pagada":
+        for linea in venta.detalle:
+            inventario_service.registrar_movimiento(
+                db,
+                variante_id=linea.variante_id,
+                sucursal_id=venta.sucursal_id,
+                tipo_movimiento_codigo="devolucion",
+                cantidad=linea.cantidad,
+                referencia_tipo="venta_anulada",
+                referencia_id=venta.id,
+                commit=False,
+            )
+    else:
+        raise DomainError(f"No se puede anular una venta en estado '{estado_actual.codigo}'")
+
+    estado_anulada = estado_repo.obtener_por_codigo(db, "anulada")
+    venta.estado_id = estado_anulada.id
+
+    if commit:
+        db.commit()
+        db.refresh(venta)
+    else:
+        db.flush()
+    return venta
+
+
+def obtener_venta(db: Session, venta_id: int) -> Venta:
+    """Para que `pagos` lea una venta (monto, sucursal, etc.) sin
+    consultar `venta` directamente."""
+    return venta_repo.obtener(db, venta_id)
 
 
 def registrar_venta_presencial(db: Session, usuario_id: int, datos: VentaPresencialCrear) -> Venta:
@@ -492,6 +575,13 @@ def desactivar_promocion(db: Session, promocion_id: int):
 
 def registrar_devolucion(db: Session, usuario_id: int, datos: DevolucionCrear) -> Devolucion:
     venta = venta_repo.obtener(db, datos.venta_id)
+
+    # Con el pago gateado (P5.2), una venta 'pendiente_pago' nunca
+    # descontó stock físico -- no hay nada real que devolver todavía.
+    estado_venta = estado_repo.obtener(db, venta.estado_id)
+    if estado_venta.codigo not in ("pagada", "entregada"):
+        raise DomainError(f"No se puede devolver una venta en estado '{estado_venta.codigo}'")
+
     detalle_por_id = {linea.id: linea for linea in venta.detalle}
 
     devolucion = Devolucion(

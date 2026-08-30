@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     vertex_location: str = "us-central1"
     vertex_modelo: str = "gemini-2.5-flash-image"
 
+    # Secretos para verificar la firma HMAC de los webhooks de pago (ver
+    # app/pagos/pasarela.py). Ambas pasarelas corren en modo sandbox sin
+    # credenciales reales todavía, así que estos valores por defecto son
+    # solo para desarrollo/pruebas -- en producción se sobreescriben por
+    # variable de entorno como cualquier otro secreto (regla 9).
+    libelula_webhook_secret: str = "sandbox-secret-libelula"
+    paypal_webhook_secret: str = "sandbox-secret-paypal"
+
 
 @lru_cache
 def get_settings() -> Settings:

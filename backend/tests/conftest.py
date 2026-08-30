@@ -18,6 +18,7 @@ from app.core import models as _core_models  # noqa: F401  (registra las tablas)
 from app.inventario import models as _inventario_models  # noqa: F401  (registra las tablas)
 from app.inventario.repository import VW_INVENTARIO_CONSOLIDADO_SQL
 from app.organizacion import models as _organizacion_models  # noqa: F401  (registra las tablas)
+from app.pagos import models as _pagos_models  # noqa: F401  (registra las tablas)
 from app.probador import models as _probador_models  # noqa: F401  (registra las tablas)
 from app.reservas import models as _reservas_models  # noqa: F401  (registra las tablas)
 from app.seguridad import models as _seguridad_models  # noqa: F401  (registra las tablas)
@@ -25,6 +26,7 @@ from app.seguridad.repository import UsuarioRepository
 from app.seguridad.schemas import UsuarioCrear
 from app.ventas import models as _ventas_models  # noqa: F401  (registra las tablas)
 from scripts.seed_inventario import seed as seed_inventario
+from scripts.seed_pagos import seed as seed_pagos
 from scripts.seed_reservas import seed as seed_reservas
 from scripts.seed_seguridad import seed as seed_seguridad
 from scripts.seed_ventas import seed as seed_ventas
@@ -46,6 +48,7 @@ def db_session():
     seed_inventario(session)
     seed_reservas(session)
     seed_ventas(session)
+    seed_pagos(session)
     try:
         yield session
     finally:

@@ -28,6 +28,7 @@ from app.catalogo import models as catalogo_models  # noqa: F401
 from app.core import models as core_models  # noqa: F401
 from app.inventario import models as inventario_models  # noqa: F401
 from app.organizacion import models as organizacion_models  # noqa: F401
+from app.pagos import models as pagos_models  # noqa: F401
 from app.probador import models as probador_models  # noqa: F401
 from app.reservas import models as reservas_models  # noqa: F401
 from app.seguridad import models as seguridad_models  # noqa: F401

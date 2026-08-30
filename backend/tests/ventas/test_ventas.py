@@ -78,7 +78,14 @@ def _payload_presencial(ctx, cantidad=1):
     }
 
 
-# ---- venta descuenta stock -----------------------------------------------------------
+def _pagar_en_caja(client, headers, venta_id, *, metodo="qr", monto_recibido=None):
+    payload = {"venta_id": venta_id, "metodo_pago": metodo}
+    if monto_recibido is not None:
+        payload["monto_recibido"] = monto_recibido
+    return client.post("/api/v1/pagos/caja", json=payload, headers=headers)
+
+
+# ---- venta descuenta stock (recién al confirmarse el pago, P5.2) ----------------------
 
 
 def test_venta_presencial_descuenta_stock(client, admin_headers, contexto):
@@ -90,11 +97,26 @@ def test_venta_presencial_descuenta_stock(client, admin_headers, contexto):
     assert respuesta.status_code == 201
     venta = respuesta.json()
     assert venta["canal"] == "presencial"
+    assert venta["estado"] == "pendiente_pago"
     assert venta["subtotal"] == "300.00"
     assert venta["total"] == "300.00"
 
-    disponible_despues = _stock(client, admin_headers, contexto)["cantidad_disponible"]
-    assert disponible_despues == disponible_antes - 3
+    # Reservado, pero todavía NO descontado físicamente: el pago no se
+    # confirmó todavía.
+    stock_pendiente = _stock(client, admin_headers, contexto)
+    assert stock_pendiente["cantidad_disponible"] == disponible_antes - 3
+    assert stock_pendiente["cantidad_fisica"] == 10
+
+    pago = _pagar_en_caja(client, contexto["cajero_headers"], venta["id"])
+    assert pago.status_code == 201
+
+    stock_pagado = _stock(client, admin_headers, contexto)
+    assert stock_pagado["cantidad_fisica"] == 7
+    assert stock_pagado["cantidad_reservada"] == 0
+    assert stock_pagado["cantidad_disponible"] == disponible_antes - 3
+
+    venta_pagada = client.get(f"/api/v1/ventas/{venta['id']}/comprobante", headers=admin_headers).json()
+    assert venta_pagada["estado"] == "pagada"
 
 
 # ---- no se puede vender más de lo disponible ------------------------------------------
@@ -118,11 +140,15 @@ def test_no_se_puede_vender_mas_de_lo_disponible(client, contexto):
 
 def test_costo_congelado_no_cambia_con_recepcion_posterior(client, admin_headers, contexto):
     """El "Revisar" del enunciado: vender, después recibir a otro costo, y
-    confirmar que el margen histórico de la primera venta no se movió."""
+    confirmar que el margen histórico de la primera venta no se movió.
+    El costo recién se congela al confirmarse el pago (P5.2), no al crear
+    la venta -- por eso el pago va antes de leer costo_unitario."""
     respuesta = client.post(
         "/api/v1/ventas/presencial", json=_payload_presencial(contexto, cantidad=2), headers=contexto["cajero_headers"]
     )
     venta_id = respuesta.json()["id"]
+    _pagar_en_caja(client, contexto["cajero_headers"], venta_id)
+
     comprobante = client.get(f"/api/v1/ventas/{venta_id}/comprobante", headers=admin_headers).json()
     costo_congelado = comprobante["detalle"][0]["costo_unitario"]
     assert costo_congelado == "10.0000"  # costo_promedio de la recepción inicial
@@ -190,15 +216,25 @@ def test_venta_desde_reserva_libera_stock_reservado(client, admin_headers, clien
     assert stock_tras_seleccion["cantidad_reservada"] == 2
     assert stock_tras_seleccion["cantidad_fisica"] == 10
 
-    # La venta desde la reserva libera lo reservado Y descuenta físicamente.
     venta = client.post(
         "/api/v1/ventas/presencial",
         json={"sucursal_id": contexto["sucursal_id"], "reserva_id": reserva_id},
         headers=contexto["cajero_headers"],
     ).json()
     assert venta["reserva_id"] == reserva_id
+    assert venta["estado"] == "pendiente_pago"
     assert len(venta["detalle"]) == 1
     assert venta["detalle"][0]["cantidad"] == 2
+
+    # Crear la venta todavía no toca el stock: sigue reservado (por la
+    # reserva original), nada descontado físicamente hasta que se pague.
+    stock_tras_venta = _stock(client, admin_headers, contexto)
+    assert stock_tras_venta["cantidad_reservada"] == 2
+    assert stock_tras_venta["cantidad_fisica"] == 10
+
+    # Pagar es lo que libera lo reservado Y descuenta físicamente.
+    pago = _pagar_en_caja(client, contexto["cajero_headers"], venta["id"])
+    assert pago.status_code == 201
 
     stock_final = _stock(client, admin_headers, contexto)
     assert stock_final["cantidad_reservada"] == 0
@@ -242,6 +278,7 @@ def test_devolucion_reingresa_stock(client, admin_headers, contexto):
         "/api/v1/ventas/presencial", json=_payload_presencial(contexto, cantidad=4), headers=contexto["cajero_headers"]
     ).json()
     venta_detalle_id = venta["detalle"][0]["id"]
+    _pagar_en_caja(client, contexto["cajero_headers"], venta["id"])  # sin pagar, no hay nada físico que devolver
 
     disponible_tras_venta = _stock(client, admin_headers, contexto)["cantidad_disponible"]
 
@@ -262,6 +299,7 @@ def test_devolucion_no_puede_superar_lo_vendido(client, contexto):
         "/api/v1/ventas/presencial", json=_payload_presencial(contexto, cantidad=2), headers=contexto["cajero_headers"]
     ).json()
     venta_detalle_id = venta["detalle"][0]["id"]
+    _pagar_en_caja(client, contexto["cajero_headers"], venta["id"])
 
     respuesta = client.post(
         "/api/v1/devoluciones",

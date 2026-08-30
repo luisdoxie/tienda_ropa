@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic import field_validator
@@ -72,6 +73,11 @@ class Settings(BaseSettings):
     paypal_client_id: str = ""
     paypal_client_secret: str = ""
     paypal_mode: str = "sandbox"
+
+    # Peso promedio de una prenda (kg), para estimar el peso total de un
+    # pedido en entregas.service._peso_pedido() sin modelar el peso real de
+    # cada variante (fuera del alcance de P5.3).
+    peso_promedio_prenda_kg: Decimal = Decimal("0.3")
 
 
 @lru_cache

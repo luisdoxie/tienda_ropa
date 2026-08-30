@@ -26,6 +26,7 @@ config.set_main_option("sqlalchemy.url", get_settings().database_url)
 from app.abastecimiento import models as abastecimiento_models  # noqa: F401
 from app.catalogo import models as catalogo_models  # noqa: F401
 from app.core import models as core_models  # noqa: F401
+from app.entregas import models as entregas_models  # noqa: F401
 from app.inventario import models as inventario_models  # noqa: F401
 from app.organizacion import models as organizacion_models  # noqa: F401
 from app.pagos import models as pagos_models  # noqa: F401

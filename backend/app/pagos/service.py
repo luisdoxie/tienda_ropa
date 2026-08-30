@@ -47,7 +47,13 @@ def iniciar_pago_pasarela(db: Session, usuario_id: int, datos: PagoIniciarReques
     pago_repo.crear(db, pago)  # flush: pago.id ya disponible
 
     pasarela = obtener_pasarela(metodo.codigo)
-    resultado = pasarela.iniciar_pago(monto=venta.total, referencia=venta.codigo)
+    try:
+        resultado = pasarela.iniciar_pago(monto=venta.total, referencia=venta.codigo)
+    except RuntimeError as exc:
+        # No deja el pago en 'iniciado' colgado si la pasarela real (p.
+        # ej. PayPal) no respondió: no tiene una transacción real detrás.
+        db.rollback()
+        raise DomainError(str(exc)) from exc
     pago.referencia_externa = resultado.id_transaccion
 
     payload_envio = {"monto": str(venta.total), "referencia": venta.codigo}
@@ -216,7 +222,12 @@ def obtener_estado_pago(db: Session, usuario_id: int, pago_id: int) -> Pago:
         return pago
 
     pasarela = obtener_pasarela(primera.pasarela)
-    estado_pasarela = pasarela.consultar_estado(primera.id_transaccion)
+    try:
+        estado_pasarela = pasarela.consultar_estado(primera.id_transaccion)
+    except RuntimeError:
+        # Best-effort: si la pasarela real no responde ahora, se devuelve
+        # el último estado guardado en vez de romper el polling del cliente.
+        return pago
     if estado_pasarela == "iniciado":
         return pago  # sin novedad
 

@@ -62,6 +62,17 @@ class Settings(BaseSettings):
     libelula_webhook_secret: str = "sandbox-secret-libelula"
     paypal_webhook_secret: str = "sandbox-secret-paypal"
 
+    # PayPal sí tiene credenciales reales de sandbox configuradas (Client
+    # ID/Secret de una app de PayPal Developer en modo prueba): con esto,
+    # PayPalGateway.iniciar_pago()/consultar_estado() llaman de verdad a
+    # la API de PayPal en vez de simular. El webhook sigue siendo HMAC de
+    # sandbox (ver pasarela.py): verificarlo de verdad necesita un
+    # PAYPAL_WEBHOOK_ID configurado en el dashboard de PayPal contra una
+    # URL pública, que este entorno local no tiene.
+    paypal_client_id: str = ""
+    paypal_client_secret: str = ""
+    paypal_mode: str = "sandbox"
+
 
 @lru_cache
 def get_settings() -> Settings:

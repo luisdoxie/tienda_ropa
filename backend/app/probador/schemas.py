@@ -48,3 +48,68 @@ class ActivoRespuesta(BaseModel):
             estado=activo.estado,
             creado_en=activo.creado_en,
         )
+
+
+class AssetsVarianteRespuesta(BaseModel):
+    """Lo que necesita el modo espejo en Flutter para una variante:
+    el overlay validado (obligatorio para probar) y el flat-lay
+    generado, si algún admin ya lo subió y validó."""
+
+    overlay: ActivoRespuesta
+    flatlay: ActivoRespuesta | None = None
+
+
+EstadoGeneracion = Literal["en_proceso", "completado", "fallido"]
+
+
+class GeneracionIniciadaRespuesta(BaseModel):
+    id: int
+    estado: EstadoGeneracion
+    url_resultado: str | None = None
+    desde_cache: bool
+
+
+class GeneracionEstadoRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    estado: EstadoGeneracion
+    url_resultado: str | None = None
+    mensaje_error: str | None = None
+
+
+ModoProbador = Literal["espejo", "generativo"]
+
+
+class SesionCrear(BaseModel):
+    variante_id: int
+    modo: ModoProbador
+    duracion_seg: int | None = Field(default=None, ge=0)
+
+
+class SesionRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    variante_id: int
+    modo: ModoProbador
+    duracion_seg: int | None = None
+    creado_en: dt.datetime
+
+
+PreferenciaAjuste = Literal["ajustado", "regular", "holgado"]
+
+
+class TallaRequest(BaseModel):
+    variante_id: int
+    estatura_cm: float = Field(ge=100, le=230)
+    peso_kg: float = Field(ge=30, le=250)
+    preferencia_ajuste: PreferenciaAjuste = "regular"
+
+
+class TallaRecomendadaRespuesta(BaseModel):
+    talla_id: int | None
+    talla_codigo: str | None
+    pecho_estimado_cm: float
+    cintura_estimado_cm: float
+    advertencia: str | None = None

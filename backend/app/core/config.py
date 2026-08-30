@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     # configurarlo explícitamente en el entorno para habilitar la tarea.
     tareas_token: str = ""
 
+    # Modo generativo del probador (Vertex AI). Sin vertex_project_id
+    # configurado, VertexAIProbadorGenerativo falla al primer uso: el modo
+    # espejo (Flutter, sin backend) sigue funcionando igual, es el
+    # generativo el que queda inhabilitado hasta configurar el proyecto de
+    # GCP. Las credenciales van por GOOGLE_APPLICATION_CREDENTIALS, nunca acá.
+    vertex_project_id: str = ""
+    vertex_location: str = "us-central1"
+    vertex_modelo: str = "gemini-3.1-flash-image"
+
 
 @lru_cache
 def get_settings() -> Settings:

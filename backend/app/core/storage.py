@@ -38,6 +38,10 @@ def carpeta_probador(variante_id: int) -> str:
     return f"fashionstore/probador/{variante_id}"
 
 
+def carpeta_probador_generado(variante_id: int) -> str:
+    return f"fashionstore/probador/{variante_id}/generado"
+
+
 def subir_imagen(contenido: bytes, carpeta: str, *, formato_forzado: str | None = None) -> str:
     """Sube un archivo a Cloudinary y devuelve su `public_id`.
 

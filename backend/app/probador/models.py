@@ -45,3 +45,44 @@ class ActivoProbador(Base):
     estado: Mapped[str] = mapped_column(String(15), nullable=False, default="pendiente")
     creado_por: Mapped[int | None] = mapped_column(ForeignKey("usuario.id"))
     creado_en: Mapped[dt.datetime] = mapped_column(server_default=func.now())
+
+
+class ProbadorGeneracion(Base):
+    """Caché del modo generativo: evita pagar dos veces la misma
+    combinación foto+prenda. La foto original del cliente NUNCA se
+    guarda acá ni en ningún otro lado — solo su hash y, si la
+    generación tuvo éxito, la URL del resultado en Cloudinary."""
+
+    __tablename__ = "probador_generacion"
+    __table_args__ = (
+        CheckConstraint(
+            "estado IN ('en_proceso','completado','fallido')", name="ck_probador_generacion_estado"
+        ),
+        Index("ix_generacion_cache", "hash_foto", "variante_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cliente_id: Mapped[int | None] = mapped_column(ForeignKey("cliente.id"))
+    variante_id: Mapped[int] = mapped_column(ForeignKey("producto_variante.id"), nullable=False)
+    hash_foto: Mapped[str] = mapped_column(String(64), nullable=False)
+    url_resultado: Mapped[str | None] = mapped_column(Text)
+    proveedor: Mapped[str | None] = mapped_column(String(30))
+    estado: Mapped[str] = mapped_column(String(15), nullable=False, default="en_proceso")
+    mensaje_error: Mapped[str | None] = mapped_column(String(300))
+    creado_en: Mapped[dt.datetime] = mapped_column(server_default=func.now())
+
+
+class SesionProbador(Base):
+    """Un registro por cada vez que un cliente usa el probador (espejo o
+    generativo). Es la métrica de uso y, más adelante, el alimento del
+    recomendador (paquete `inteligencia`)."""
+
+    __tablename__ = "sesion_probador"
+    __table_args__ = (CheckConstraint("modo IN ('espejo','generativo')", name="ck_sesion_probador_modo"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cliente_id: Mapped[int | None] = mapped_column(ForeignKey("cliente.id"))
+    variante_id: Mapped[int] = mapped_column(ForeignKey("producto_variante.id"), nullable=False)
+    modo: Mapped[str] = mapped_column(String(15), nullable=False)
+    duracion_seg: Mapped[int | None]
+    creado_en: Mapped[dt.datetime] = mapped_column(server_default=func.now())

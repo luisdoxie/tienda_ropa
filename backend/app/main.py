@@ -1,10 +1,16 @@
 import logging
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+# Carga .env al entorno real del proceso (no solo a Settings): lo necesita
+# GOOGLE_APPLICATION_CREDENTIALS, que las Application Default Credentials
+# de Google leen directo de os.environ, no de la app.
+load_dotenv()
 
 from app.core.config import get_settings
 from app.core.database import get_db

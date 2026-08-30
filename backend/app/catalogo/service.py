@@ -462,3 +462,22 @@ def obtener_producto(db: Session, producto_id: int) -> Producto:
     producto_proveedor) validen un producto sin consultar la tabla
     `producto` directamente."""
     return producto_repo.obtener(db, producto_id)
+
+
+def obtener_talla(db: Session, talla_id: int) -> Talla:
+    """Para que otros paquetes (p. ej. `probador`, para el orden de las
+    tallas al recomendar una) resuelvan una talla sin consultar la tabla
+    `talla` directamente."""
+    return talla_repo.obtener(db, talla_id)
+
+
+def listar_medidas_para_variante(db: Session, variante_id: int) -> list[TablaMedida]:
+    """Para que `probador` cruce las medidas estimadas del cliente con
+    tabla_medida sin consultar esa tabla directamente. Prioriza las filas
+    específicas del producto de la variante; si no hay ninguna, cae a las
+    de su categoría."""
+    variante = variante_repo.obtener(db, variante_id)
+    medidas = medida_repo.listar_por_producto(db, variante.producto_id)
+    if medidas:
+        return medidas
+    return medida_repo.listar_por_categoria(db, variante.producto.categoria_id)

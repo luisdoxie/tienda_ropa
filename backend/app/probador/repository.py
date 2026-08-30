@@ -1,8 +1,10 @@
-from sqlalchemy import select
+import datetime as dt
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NoEncontradoError
-from app.probador.models import ActivoProbador
+from app.probador.models import ActivoProbador, ProbadorGeneracion, SesionProbador
 
 
 class ActivoRepository:
@@ -61,3 +63,72 @@ class ActivoRepository:
         db.commit()
         db.refresh(activo)
         return activo
+
+
+class GeneracionRepository:
+    """No hereda de CRUDBase: probador_generacion no tiene borrado lógico
+    (es un caché de resultados, no un catálogo administrable)."""
+
+    def buscar_completado(self, db: Session, hash_foto: str, variante_id: int) -> ProbadorGeneracion | None:
+        return db.scalar(
+            select(ProbadorGeneracion).where(
+                ProbadorGeneracion.hash_foto == hash_foto,
+                ProbadorGeneracion.variante_id == variante_id,
+                ProbadorGeneracion.estado == "completado",
+            )
+        )
+
+    def contar_desde(self, db: Session, cliente_id: int, desde: dt.datetime) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(ProbadorGeneracion)
+            .where(ProbadorGeneracion.cliente_id == cliente_id, ProbadorGeneracion.creado_en >= desde)
+        )
+
+    def obtener(self, db: Session, generacion_id: int) -> ProbadorGeneracion:
+        generacion = db.get(ProbadorGeneracion, generacion_id)
+        if generacion is None:
+            raise NoEncontradoError("Generación no encontrada")
+        return generacion
+
+    def crear(self, db: Session, cliente_id: int, variante_id: int, hash_foto: str) -> ProbadorGeneracion:
+        generacion = ProbadorGeneracion(
+            cliente_id=cliente_id, variante_id=variante_id, hash_foto=hash_foto, estado="en_proceso"
+        )
+        db.add(generacion)
+        db.commit()
+        db.refresh(generacion)
+        return generacion
+
+    def marcar_completado(
+        self, db: Session, generacion_id: int, url_resultado: str, proveedor: str
+    ) -> ProbadorGeneracion:
+        generacion = self.obtener(db, generacion_id)
+        generacion.estado = "completado"
+        generacion.url_resultado = url_resultado
+        generacion.proveedor = proveedor
+        db.commit()
+        db.refresh(generacion)
+        return generacion
+
+    def marcar_fallido(self, db: Session, generacion_id: int, mensaje_error: str) -> ProbadorGeneracion:
+        generacion = self.obtener(db, generacion_id)
+        generacion.estado = "fallido"
+        generacion.mensaje_error = mensaje_error[:300]
+        db.commit()
+        db.refresh(generacion)
+        return generacion
+
+
+class SesionRepository:
+    """No hereda de CRUDBase: sesion_probador es una métrica de uso que se
+    inserta una sola vez, nunca se edita ni se borra lógicamente."""
+
+    def crear(
+        self, db: Session, cliente_id: int | None, variante_id: int, modo: str, duracion_seg: int | None
+    ) -> SesionProbador:
+        sesion = SesionProbador(cliente_id=cliente_id, variante_id=variante_id, modo=modo, duracion_seg=duracion_seg)
+        db.add(sesion)
+        db.commit()
+        db.refresh(sesion)
+        return sesion

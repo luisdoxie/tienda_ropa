@@ -234,6 +234,9 @@ class TablaMedidaRepository:
     def listar_por_producto(self, db: Session, producto_id: int) -> list[TablaMedida]:
         return list(db.scalars(select(TablaMedida).where(TablaMedida.producto_id == producto_id)))
 
+    def listar_por_categoria(self, db: Session, categoria_id: int) -> list[TablaMedida]:
+        return list(db.scalars(select(TablaMedida).where(TablaMedida.categoria_id == categoria_id)))
+
     def obtener(self, db: Session, producto_id: int, medida_id: int) -> TablaMedida:
         medida = db.scalar(
             select(TablaMedida).where(TablaMedida.id == medida_id, TablaMedida.producto_id == producto_id)

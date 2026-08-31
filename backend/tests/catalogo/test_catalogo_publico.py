@@ -156,6 +156,62 @@ def test_buscar_genero_invalido_rechazado(client):
     assert respuesta.status_code == 422
 
 
+# ---- Variantes para la caja (POS) ---------------------------------------------
+
+
+def _primera_variante(client, admin_headers, producto_id):
+    return client.get(f"/api/v1/productos/{producto_id}/variantes", headers=admin_headers).json()[0]
+
+
+def test_buscar_variante_por_codigo_de_barras_exacto(client, admin_headers, categoria_camisas, tallas, colores):
+    producto = _crear_producto(
+        client, admin_headers, categoria_camisas["id"], [tallas[0]["id"]], [colores[0]["id"]], "POS-1"
+    )
+    variante = _primera_variante(client, admin_headers, producto["id"])
+    asignado = client.put(
+        f"/api/v1/variantes/{variante['id']}", json={"codigo_barras": "7591234567890"}, headers=admin_headers
+    )
+    assert asignado.status_code == 200
+
+    resultados = client.get("/api/v1/catalogo/variantes/buscar?q=7591234567890").json()
+    assert len(resultados) == 1
+    assert resultados[0]["variante_id"] == variante["id"]
+    assert resultados[0]["producto_nombre"] == "Camisa de lino"
+    assert resultados[0]["precio_efectivo"] == "150.00"
+
+
+def test_buscar_variante_por_nombre_no_requiere_auth(client, admin_headers, categoria_camisas, tallas, colores):
+    _crear_producto(
+        client,
+        admin_headers,
+        categoria_camisas["id"],
+        [tallas[0]["id"]],
+        [colores[0]["id"]],
+        "POS-2",
+        nombre="Chamarra de cuero",
+    )
+    # Sin headers: es el mismo router público que /catalogo/buscar.
+    resultados = client.get("/api/v1/catalogo/variantes/buscar?q=chamarra").json()
+    assert any(r["producto_codigo"] == "POS-2" for r in resultados)
+
+
+def test_codigo_de_barras_duplicado_es_rechazado(client, admin_headers, categoria_camisas, tallas, colores):
+    prod_a = _crear_producto(
+        client, admin_headers, categoria_camisas["id"], [tallas[0]["id"]], [colores[0]["id"]], "POS-3A"
+    )
+    prod_b = _crear_producto(
+        client, admin_headers, categoria_camisas["id"], [tallas[0]["id"]], [colores[0]["id"]], "POS-3B"
+    )
+    variante_a = _primera_variante(client, admin_headers, prod_a["id"])
+    variante_b = _primera_variante(client, admin_headers, prod_b["id"])
+
+    client.put(f"/api/v1/variantes/{variante_a['id']}", json={"codigo_barras": "111"}, headers=admin_headers)
+    duplicado = client.put(
+        f"/api/v1/variantes/{variante_b['id']}", json={"codigo_barras": "111"}, headers=admin_headers
+    )
+    assert duplicado.status_code == 409
+
+
 # ---- Favoritos ------------------------------------------------------------------
 
 

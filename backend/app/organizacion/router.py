@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import ParametrosPaginacion, parametros_paginacion
-from app.core.security import require_permission
+from app.core.security import get_current_user, require_permission
 from app.organizacion import service
 from app.organizacion.repository import CiudadRepository, EmpleadoRepository, HorarioRepository, SucursalRepository
 from app.organizacion.schemas import (
@@ -138,35 +138,44 @@ def eliminar_horario(sucursal_id: int, horario_id: int, db: Session = Depends(ge
 
 
 # ---- /api/v1/empleados ---------------------------------------------------
+# Sin dependencies=[admin_requerido] a nivel de router (a diferencia de los
+# otros): /empleados/yo lo llama cualquier empleado logueado (p. ej. la caja
+# en Angular, para saber su propia sucursal), el resto sigue siendo de
+# administración.
 
-empleados_router = APIRouter(prefix="/api/v1/empleados", tags=["empleados"], dependencies=[admin_requerido])
+empleados_router = APIRouter(prefix="/api/v1/empleados", tags=["empleados"])
 
 
-@empleados_router.get("", response_model=list[EmpleadoRespuesta])
+@empleados_router.get("/yo", response_model=EmpleadoRespuesta)
+def obtener_mi_empleado(usuario=Depends(get_current_user), db: Session = Depends(get_db)) -> EmpleadoRespuesta:
+    return service.obtener_mi_empleado(db, usuario.id)
+
+
+@empleados_router.get("", response_model=list[EmpleadoRespuesta], dependencies=[admin_requerido])
 def listar_empleados(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[EmpleadoRespuesta]:
     return list(empleado_repo.listar(db, paginacion))
 
 
-@empleados_router.get("/{empleado_id}", response_model=EmpleadoRespuesta)
+@empleados_router.get("/{empleado_id}", response_model=EmpleadoRespuesta, dependencies=[admin_requerido])
 def obtener_empleado(empleado_id: int, db: Session = Depends(get_db)) -> EmpleadoRespuesta:
     return empleado_repo.obtener(db, empleado_id)
 
 
-@empleados_router.post("", response_model=EmpleadoRespuesta, status_code=status.HTTP_201_CREATED)
+@empleados_router.post("", response_model=EmpleadoRespuesta, status_code=status.HTTP_201_CREATED, dependencies=[admin_requerido])
 def crear_empleado(datos: EmpleadoCrear, db: Session = Depends(get_db)) -> EmpleadoRespuesta:
     return service.crear_empleado(db, datos)
 
 
-@empleados_router.put("/{empleado_id}", response_model=EmpleadoRespuesta)
+@empleados_router.put("/{empleado_id}", response_model=EmpleadoRespuesta, dependencies=[admin_requerido])
 def actualizar_empleado(
     empleado_id: int, datos: EmpleadoActualizar, db: Session = Depends(get_db)
 ) -> EmpleadoRespuesta:
     return service.actualizar_empleado(db, empleado_id, datos)
 
 
-@empleados_router.delete("/{empleado_id}", status_code=status.HTTP_204_NO_CONTENT)
+@empleados_router.delete("/{empleado_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[admin_requerido])
 def desactivar_empleado(empleado_id: int, db: Session = Depends(get_db)) -> None:
     empleado_repo.desactivar(db, empleado_id)
 

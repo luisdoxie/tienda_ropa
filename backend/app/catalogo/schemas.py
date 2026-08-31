@@ -229,6 +229,7 @@ class VariantesGenerarRequest(BaseModel):
 
 class VarianteActualizar(BaseModel):
     precio: Decimal | None = Field(default=None, ge=0)
+    codigo_barras: str | None = Field(default=None, max_length=40)
     activo: bool | None = None
 
 
@@ -258,6 +259,23 @@ class VarianteRespuesta(BaseModel):
             precio_efectivo=variante.precio if variante.precio is not None else variante.producto.precio_base,
             activo=variante.activo,
         )
+
+
+class VarianteBusquedaRespuesta(BaseModel):
+    """Fila de GET /catalogo/variantes/buscar (POS): una variante con lo
+    mínimo que la caja necesita mostrar y mandar en el detalle de la venta,
+    sin que el cajero (sin catalogo.gestionar) tenga que pasar por
+    /productos/{id}/variantes."""
+
+    variante_id: int
+    producto_id: int
+    producto_nombre: str
+    producto_codigo: str
+    talla_codigo: str
+    color_nombre: str
+    sku: str
+    codigo_barras: str | None = None
+    precio_efectivo: Decimal
 
 
 # ---- Tabla de medidas ---------------------------------------------------------

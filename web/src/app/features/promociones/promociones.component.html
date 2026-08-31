@@ -1,0 +1,62 @@
+<h1>Promociones</h1>
+
+<app-tabla-generica
+  endpoint="/promociones"
+  [columnas]="columnas"
+  (crear)="abrirCrear()"
+  (editar)="abrirEditar($event)"
+/>
+
+<p-dialog header="Promoción" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '480px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    @if (!editando()) {
+      <label for="tipo">Tipo</label>
+      <p-select
+        inputId="tipo"
+        formControlName="tipo"
+        [options]="opcionesTipo"
+        optionLabel="label"
+        optionValue="value"
+      />
+    }
+
+    <label for="valor">{{ formulario.value.tipo === 'monto' ? 'Valor (Bs)' : 'Valor (%)' }}</label>
+    <p-inputnumber inputId="valor" formControlName="valor" [min]="0.01" [maxFractionDigits]="2" />
+
+    <label for="fecha_inicio">Desde</label>
+    <p-datepicker inputId="fecha_inicio" formControlName="fecha_inicio" dateFormat="dd/mm/yy" [showIcon]="true" />
+
+    <label for="fecha_fin">Hasta</label>
+    <p-datepicker inputId="fecha_fin" formControlName="fecha_fin" dateFormat="dd/mm/yy" [showIcon]="true" />
+
+    @if (editando()) {
+      <label class="formulario__checkbox">
+        <p-checkbox formControlName="activo" [binary]="true" />
+        Activa
+      </label>
+    } @else {
+      <h3>Alcance (a qué aplica)</h3>
+      <div formArrayName="alcances">
+        @for (linea of lineasAlcance.controls; track $index; let i = $index) {
+          <div [formGroupName]="i" class="fila-alcance">
+            <p-select [options]="opcionesAlcance" optionLabel="label" optionValue="value" formControlName="tipo" />
+            <p-inputnumber [useGrouping]="false" placeholder="ID" formControlName="id" />
+            <p-button
+              icon="pi pi-trash"
+              [text]="true"
+              severity="danger"
+              [disabled]="lineasAlcance.length === 1"
+              (onClick)="quitarAlcance(i)"
+            />
+          </div>
+        }
+      </div>
+      <p-button icon="pi pi-plus" label="Agregar alcance" [text]="true" size="small" (onClick)="agregarAlcance()" />
+    }
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

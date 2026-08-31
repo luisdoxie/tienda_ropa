@@ -58,6 +58,23 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/reservas/reservas.component').then((m) => m.ReservasComponent),
       },
+      {
+        path: 'caja',
+        canActivate: [permisoGuard('ventas.presencial')],
+        loadComponent: () => import('./features/caja/caja.component').then((m) => m.CajaComponent),
+      },
+      {
+        path: 'promociones',
+        canActivate: [permisoGuard('ventas.gestionar')],
+        loadComponent: () =>
+          import('./features/promociones/promociones.component').then((m) => m.PromocionesComponent),
+      },
+      {
+        path: 'zonas-envio',
+        canActivate: [permisoGuard('entregas.gestionar')],
+        loadComponent: () =>
+          import('./features/zonas-envio/zonas-envio.component').then((m) => m.ZonasEnvioComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

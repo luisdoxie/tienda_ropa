@@ -274,6 +274,10 @@ def agregar_variantes(db: Session, producto_id: int, datos: VariantesGenerarRequ
 
 
 def actualizar_variante(db: Session, variante_id: int, datos: VarianteActualizar) -> ProductoVariante:
+    if datos.codigo_barras is not None:
+        existente = variante_repo.obtener_por_codigo_barras(db, datos.codigo_barras)
+        if existente is not None and existente.id != variante_id:
+            raise ConflictoError("Ya existe una variante con ese código de barras")
     if datos.activo is False:
         # TODO(P3.1): bloquear si stock.cantidad_fisica > 0 una vez que
         # exista el paquete `inventario`. Cuando exista, esto llama a

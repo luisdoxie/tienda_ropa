@@ -36,3 +36,13 @@ export interface SucursalCrear {
 }
 
 export type SucursalActualizar = Partial<SucursalCrear> & { activo?: boolean };
+
+export interface Empleado {
+  id: number;
+  usuario_id: number;
+  sucursal_id: number | null;
+  ci: string | null;
+  cargo: string | null;
+  fecha_ingreso: string | null;
+  activo: boolean;
+}

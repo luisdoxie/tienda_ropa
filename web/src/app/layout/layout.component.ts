@@ -29,6 +29,9 @@ const ITEMS_MENU: ItemMenu[] = [
     ruta: '/reservas',
     permiso: 'reservas.gestionar_sucursal',
   },
+  { etiqueta: 'Caja', icono: 'pi pi-shopping-cart', ruta: '/caja', permiso: 'ventas.presencial' },
+  { etiqueta: 'Promociones', icono: 'pi pi-percentage', ruta: '/promociones', permiso: 'ventas.gestionar' },
+  { etiqueta: 'Zonas de envío', icono: 'pi pi-truck', ruta: '/zonas-envio', permiso: 'entregas.gestionar' },
 ];
 
 @Component({

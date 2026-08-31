@@ -52,6 +52,7 @@ from app.catalogo.schemas import (
     TemporadaCrear,
     TemporadaRespuesta,
     VarianteActualizar,
+    VarianteBusquedaRespuesta,
     VarianteRespuesta,
     VariantesGenerarRequest,
 )
@@ -487,6 +488,28 @@ def buscar_catalogo(
         solo_disponibles=solo_disponibles,
     )
     return service.buscar_catalogo(db, paginacion, filtros)
+
+
+@catalogo_router.get("/variantes/buscar", response_model=list[VarianteBusquedaRespuesta])
+def buscar_variantes_para_venta(
+    q: str = Query(min_length=1, description="Código de barras exacto, sku, nombre o código de producto"),
+    db: Session = Depends(get_db),
+) -> list[VarianteBusquedaRespuesta]:
+    filas = variante_repo.buscar_para_venta(db, q)
+    return [
+        VarianteBusquedaRespuesta(
+            variante_id=variante.id,
+            producto_id=producto.id,
+            producto_nombre=producto.nombre,
+            producto_codigo=producto.codigo,
+            talla_codigo=talla.codigo,
+            color_nombre=color.nombre,
+            sku=variante.sku,
+            codigo_barras=variante.codigo_barras,
+            precio_efectivo=variante.precio if variante.precio is not None else producto.precio_base,
+        )
+        for variante, producto, talla, color in filas
+    ]
 
 
 @catalogo_router.get("/{producto_id}", response_model=CatalogoDetalleRespuesta)

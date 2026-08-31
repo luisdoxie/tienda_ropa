@@ -204,3 +204,39 @@ def test_empleado_con_usuario_inexistente_falla(client, admin_headers):
         "/api/v1/empleados", json={"usuario_id": 9999, "cargo": "Cajero"}, headers=admin_headers
     )
     assert respuesta.status_code == 404
+
+
+def test_empleados_yo_devuelve_mi_propio_registro(client, admin_headers, db_session):
+    from tests.conftest import crear_cajero
+
+    ciudad = crear_ciudad(client, admin_headers).json()
+    sucursal = crear_sucursal(client, admin_headers, ciudad["id"], codigo="S-YO").json()
+    cajero_headers = crear_cajero(client, admin_headers, db_session, sucursal_id=sucursal["id"])
+
+    respuesta = client.get("/api/v1/empleados/yo", headers=cajero_headers)
+    assert respuesta.status_code == 200
+    assert respuesta.json()["sucursal_id"] == sucursal["id"]
+
+
+def test_empleados_yo_sin_ser_empleado_da_404(client, cliente_headers):
+    respuesta = client.get("/api/v1/empleados/yo", headers=cliente_headers)
+    assert respuesta.status_code == 404
+
+
+def test_empleados_yo_no_requiere_permiso_admin(client, admin_headers, db_session):
+    """A diferencia del resto de /empleados, /yo no exige
+    organizacion.gestionar: lo llama cualquier empleado logueado (la caja
+    en Angular necesita saber su propia sucursal)."""
+    from tests.conftest import crear_cajero
+
+    ciudad = crear_ciudad(client, admin_headers).json()
+    sucursal = crear_sucursal(client, admin_headers, ciudad["id"], codigo="S-YO2").json()
+    cajero_headers = crear_cajero(
+        client, admin_headers, db_session, sucursal_id=sucursal["id"], email="cajero-yo@example.com"
+    )
+
+    sin_permiso_admin = client.get("/api/v1/empleados", headers=cajero_headers)
+    assert sin_permiso_admin.status_code == 403
+
+    con_yo = client.get("/api/v1/empleados/yo", headers=cajero_headers)
+    assert con_yo.status_code == 200

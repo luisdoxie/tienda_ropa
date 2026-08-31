@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictoError
+from app.core.exceptions import ConflictoError, NoEncontradoError
 from app.organizacion.models import Empleado, HorarioSucursal, Sucursal
 from app.organizacion.repository import EmpleadoRepository, HorarioRepository, SucursalRepository
 from app.organizacion.schemas import EmpleadoActualizar, EmpleadoCrear, HorarioActualizar, HorarioCrear
@@ -35,6 +35,16 @@ def obtener_empleado_por_usuario(db: Session, usuario_id: int) -> Empleado | Non
     logueado al registrar una venta presencial, sin consultar `empleado`
     directamente."""
     return empleado_repo.obtener_por_usuario(db, usuario_id)
+
+
+def obtener_mi_empleado(db: Session, usuario_id: int) -> Empleado:
+    """GET /empleados/yo: para que la caja (Angular) sepa en qué sucursal
+    trabaja el cajero logueado, sin necesitar el permiso de administración
+    de organizacion.gestionar (ver empleados_router)."""
+    empleado = empleado_repo.obtener_por_usuario(db, usuario_id)
+    if empleado is None:
+        raise NoEncontradoError("Este usuario no tiene un registro de empleado")
+    return empleado
 
 
 def crear_horario(db: Session, sucursal_id: int, datos: HorarioCrear) -> HorarioSucursal:

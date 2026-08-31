@@ -226,6 +226,37 @@ class VarianteRepository(CRUDBase[ProductoVariante, VarianteActualizar, Variante
     def obtener_por_sku(self, db: Session, sku: str) -> ProductoVariante | None:
         return db.scalar(select(ProductoVariante).where(ProductoVariante.sku == sku))
 
+    def obtener_por_codigo_barras(self, db: Session, codigo_barras: str) -> ProductoVariante | None:
+        return db.scalar(select(ProductoVariante).where(ProductoVariante.codigo_barras == codigo_barras))
+
+    def buscar_para_venta(
+        self, db: Session, texto: str, limite: int = 20
+    ) -> list[tuple[ProductoVariante, Producto, Talla, Color]]:
+        """Para la caja (POS): resuelve una variante por código de barras
+        exacto (lector físico) o texto libre sobre sku/nombre/código de
+        producto. `productos_router` es de administración (requiere
+        catalogo.gestionar, ver su docstring); esto lo usa el cajero, que
+        solo tiene catalogo.ver."""
+        patron = f"%{texto}%"
+        consulta = (
+            select(ProductoVariante, Producto, Talla, Color)
+            .join(Producto, Producto.id == ProductoVariante.producto_id)
+            .join(Talla, Talla.id == ProductoVariante.talla_id)
+            .join(Color, Color.id == ProductoVariante.color_id)
+            .where(ProductoVariante.activo.is_(True), Producto.activo.is_(True))
+            .where(
+                or_(
+                    ProductoVariante.codigo_barras == texto,
+                    ProductoVariante.sku.ilike(patron),
+                    Producto.nombre.ilike(patron),
+                    Producto.codigo.ilike(patron),
+                )
+            )
+            .order_by(Producto.nombre)
+            .limit(limite)
+        )
+        return [tuple(fila) for fila in db.execute(consulta).all()]
+
 
 class TablaMedidaRepository:
     """No hereda de CRUDBase: tabla_medida no tiene columna `activo`, las

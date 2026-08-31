@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://tiendaropa-production-ef3b.up.railway.app/api/v1',
+  apiUrl: 'https://tiendaropa-production-b36a.up.railway.app/api/v1',
 };

@@ -64,6 +64,10 @@ PERMISOS_POR_ROL: dict[str, list[str]] = {
         "ventas.presencial",
         "ventas.gestionar_sucursal",
         "pagos.gestionar",
+        # Para el atajo "cargar reserva atendida" de la caja (P5.4): el
+        # cajero necesita ver las reservas de su sucursal para convertirlas
+        # en venta, no solo el encargado del depósito.
+        "reservas.gestionar_sucursal",
     ],
     "proveedor": [
         "catalogo.ver",

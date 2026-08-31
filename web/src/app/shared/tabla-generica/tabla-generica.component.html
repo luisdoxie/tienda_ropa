@@ -60,20 +60,8 @@
       }
       @if (!soloLectura) {
         <td>
-          <button
-            pButton
-            type="button"
-            icon="pi pi-pencil"
-            class="p-button-text p-button-sm"
-            (click)="editar.emit(fila)"
-          ></button>
-          <button
-            pButton
-            type="button"
-            icon="pi pi-trash"
-            class="p-button-text p-button-sm p-button-danger"
-            (click)="confirmarEliminar(fila)"
-          ></button>
+          <p-button icon="pi pi-pencil" [text]="true" size="small" (onClick)="editar.emit(fila)" />
+          <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger" (onClick)="confirmarEliminar(fila)" />
         </td>
       }
     </tr>

@@ -1,0 +1,37 @@
+<h1>Zonas de envío</h1>
+
+<app-tabla-generica
+  endpoint="/zonas-envio"
+  [columnas]="columnas"
+  (crear)="abrirCrear()"
+  (editar)="abrirEditar($event)"
+/>
+
+<p-dialog header="Zona de envío" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '400px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="ciudad">Ciudad</label>
+    <p-select
+      inputId="ciudad"
+      formControlName="ciudad_id"
+      [options]="ciudades()"
+      optionLabel="nombre"
+      optionValue="id"
+      placeholder="Seleccioná una ciudad"
+      [disabled]="editando() !== null"
+    />
+
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="anillo_desde">Anillo desde</label>
+    <p-inputnumber inputId="anillo_desde" formControlName="anillo_desde" [useGrouping]="false" [min]="1" />
+
+    <label for="anillo_hasta">Anillo hasta (vacío = sin límite superior)</label>
+    <p-inputnumber inputId="anillo_hasta" formControlName="anillo_hasta" [useGrouping]="false" [min]="1" />
+
+    <label for="tarifa_base">Tarifa base</label>
+    <p-inputnumber inputId="tarifa_base" formControlName="tarifa_base" mode="currency" currency="BOB" locale="es-BO" />
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

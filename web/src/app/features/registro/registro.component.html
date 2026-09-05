@@ -1,0 +1,38 @@
+<div class="auth-pantalla">
+  <form class="auth-tarjeta" [formGroup]="formulario" (ngSubmit)="enviar()">
+    <span class="auth-marca">FashionStore</span>
+    <h1 class="auth-titulo">Creá tu cuenta</h1>
+    <p class="auth-subtitulo">Para comprar, reservar y guardar favoritos.</p>
+
+    <label for="nombre">Nombre</label>
+    <input id="nombre" type="text" pInputText formControlName="nombre" autocomplete="given-name" />
+
+    <label for="apellido">Apellido</label>
+    <input id="apellido" type="text" pInputText formControlName="apellido" autocomplete="family-name" />
+
+    <label for="email">Email</label>
+    <input id="email" type="email" pInputText formControlName="email" autocomplete="username" />
+
+    <label for="telefono">Teléfono (opcional)</label>
+    <input id="telefono" type="tel" pInputText formControlName="telefono" autocomplete="tel" />
+
+    <label for="ciNit">CI / NIT (opcional)</label>
+    <input id="ciNit" type="text" pInputText formControlName="ciNit" />
+
+    <label for="password">Contraseña</label>
+    <p-password
+      inputId="password"
+      formControlName="password"
+      [feedback]="false"
+      [toggleMask]="true"
+      autocomplete="new-password"
+    />
+
+    @if (error()) {
+      <p class="auth-error">{{ error() }}</p>
+    }
+
+    <p-button type="submit" label="Crear cuenta" [loading]="cargando()" styleClass="w-full" />
+    <a class="auth-enlace" routerLink="/login" [queryParams]="queryParamsLogin">¿Ya tenés cuenta? Iniciá sesión</a>
+  </form>
+</div>

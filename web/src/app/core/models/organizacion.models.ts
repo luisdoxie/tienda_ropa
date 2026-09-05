@@ -37,6 +37,16 @@ export interface SucursalCrear {
 
 export type SucursalActualizar = Partial<SucursalCrear> & { activo?: boolean };
 
+/** Fila de GET /sucursales/{id}/horarios -- público, `dia_semana` es
+ * 1=lunes...7=domingo (isoweekday), igual que Date.getDay() ajustado. */
+export interface HorarioSucursal {
+  id: number;
+  sucursal_id: number;
+  dia_semana: number;
+  hora_apertura: string;
+  hora_cierre: string;
+}
+
 export interface Empleado {
   id: number;
   usuario_id: number;

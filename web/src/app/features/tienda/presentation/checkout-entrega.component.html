@@ -1,0 +1,112 @@
+<div class="checkout">
+  <h1>Entrega</h1>
+
+  <span class="fs-etiqueta">¿Cómo querés recibir tu pedido?</span>
+  <div class="fs-pill-fila">
+    <button
+      type="button"
+      class="fs-pill"
+      [class.activa]="checkoutService.tipoEntrega() === 'retiro'"
+      (click)="elegirTipoEntrega('retiro')"
+    >
+      Retiro en sucursal
+    </button>
+    <button
+      type="button"
+      class="fs-pill"
+      [class.activa]="checkoutService.tipoEntrega() === 'domicilio'"
+      (click)="elegirTipoEntrega('domicilio')"
+    >
+      Envío a domicilio
+    </button>
+  </div>
+
+  @if (checkoutService.tipoEntrega() === 'domicilio') {
+    <div class="seccion">
+      <span class="fs-etiqueta">Dirección</span>
+      @if (cargandoDirecciones()) {
+        <p class="fs-caption">Cargando tus direcciones...</p>
+      } @else {
+        <div class="direcciones">
+          @for (direccion of direcciones(); track direccion.id) {
+            <button
+              type="button"
+              class="fs-card direccion-tarjeta"
+              [class.seleccionada]="checkoutService.direccionId() === direccion.id"
+              (click)="elegirDireccion(direccion.id)"
+            >
+              <strong>{{ direccion.alias || 'Dirección' }}</strong>
+              <span>{{ direccion.direccion }}</span>
+            </button>
+          }
+          <p-button label="Nueva dirección" icon="pi pi-plus" [text]="true" (onClick)="abrirDialogoDireccion()" />
+        </div>
+      }
+      @if (checkoutService.direccionId() !== null) {
+        <p class="fs-caption costo-envio">
+          @if (cotizando()) {
+            Calculando costo de envío...
+          } @else if (checkoutService.cotizacion()) {
+            Envío a {{ checkoutService.cotizacion()!.zona_nombre }}:
+            <span class="fs-num">{{ checkoutService.cotizacion()!.costo | number: '1.2-2' }}</span>
+          }
+        </p>
+      }
+    </div>
+  }
+
+  @if (checkoutService.tipoEntrega()) {
+    <div class="seccion">
+      <span class="fs-etiqueta">
+        {{ checkoutService.tipoEntrega() === 'retiro' ? '¿En qué sucursal retirás?' : 'Sucursal que despacha tu pedido' }}
+      </span>
+      @if (cargandoSucursales()) {
+        <p class="fs-caption">Cargando disponibilidad...</p>
+      } @else if (sucursales().length === 0) {
+        <p class="auth-error">Ninguna sucursal tiene stock de todas las prendas de tu carrito.</p>
+      } @else {
+        <div class="fs-pill-fila">
+          @for (sucursal of sucursales(); track sucursal.id) {
+            <button
+              type="button"
+              class="fs-pill"
+              [class.activa]="checkoutService.sucursalId() === sucursal.id"
+              (click)="elegirSucursal(sucursal.id)"
+            >
+              {{ sucursal.nombre }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <button type="button" class="boton-continuar" [disabled]="!checkoutService.listoParaPagar()" (click)="continuar()">
+    Continuar
+  </button>
+</div>
+
+<p-dialog header="Nueva dirección" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '400px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardarDireccion()" class="formulario">
+    <label for="alias">Alias (opcional)</label>
+    <input id="alias" pInputText formControlName="alias" placeholder="Casa, oficina..." />
+
+    <label for="direccion">Dirección</label>
+    <input id="direccion" pInputText formControlName="direccion" />
+
+    <label for="referencia">Referencia (opcional)</label>
+    <input id="referencia" pInputText formControlName="referencia" />
+
+    <label for="zona">Zona de envío</label>
+    <p-select
+      inputId="zona"
+      formControlName="zonaEnvioId"
+      [options]="zonas()"
+      optionLabel="nombre"
+      optionValue="id"
+      placeholder="Seleccioná una zona"
+    />
+
+    <p-button type="submit" label="Guardar dirección" styleClass="w-full" />
+  </form>
+</p-dialog>

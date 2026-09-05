@@ -1,0 +1,109 @@
+<div class="detalle">
+  @if (cargando()) {
+    <p class="fs-caption estado">Cargando...</p>
+  } @else if (error() || !detalle()) {
+    <p class="fs-caption estado">No se pudo cargar esta prenda.</p>
+  } @else {
+    <div class="detalle-grilla">
+      <div class="galeria">
+        @if (imagenes().length) {
+          <div class="galeria-principal">
+            <img [src]="imagenes()[imagenActiva()]?.url" [alt]="detalle()!.nombre" />
+          </div>
+          @if (imagenes().length > 1) {
+            <div class="galeria-miniaturas">
+              @for (imagen of imagenes(); track imagen.id; let i = $index) {
+                <button type="button" class="miniatura" [class.activa]="i === imagenActiva()" (click)="imagenActiva.set(i)">
+                  <img [src]="imagen.url" alt="" />
+                </button>
+              }
+            </div>
+          }
+        } @else {
+          <div class="galeria-principal galeria-vacia">
+            <span class="pi pi-image"></span>
+          </div>
+        }
+      </div>
+
+      <div class="info">
+        <h1>{{ detalle()!.nombre }}</h1>
+        <p class="precio fs-num">{{ precio() | number: '1.2-2' }}</p>
+
+        <div class="selector">
+          <span class="fs-etiqueta">Talla</span>
+          <div class="fs-pill-fila">
+            @for (talla of tallasDisponibles(); track talla.id) {
+              <button type="button" class="fs-pill" [class.activa]="tallaId() === talla.id" (click)="seleccionarTalla(talla.id)">
+                {{ talla.codigo }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="selector">
+          <span class="fs-etiqueta">Color</span>
+          <div class="fs-pill-fila">
+            @for (color of coloresDisponibles(); track color.id) {
+              <button type="button" class="fs-pill" [class.activa]="colorId() === color.id" (click)="seleccionarColor(color.id)">
+                {{ color.nombre }}
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (tallaId() !== null && colorId() !== null && !varianteActiva()) {
+          <p class="auth-error">Esa combinación de talla y color no está disponible.</p>
+        }
+
+        @if (varianteActiva()) {
+          @if (authService.estaAutenticado()) {
+            <button type="button" class="boton-agregar" [disabled]="agregando()" (click)="agregarAlCarrito()">
+              @if (agregando()) {
+                Agregando...
+              } @else if (agregado()) {
+                Agregado ✓
+              } @else {
+                Agregar al carrito
+              }
+            </button>
+            <button type="button" class="boton-secundario" (click)="reservarParaProbar()">
+              @if (reservaCarritoService.contiene(varianteActiva()!.id)) {
+                Ya está en tu reserva ✓
+              } @else {
+                Reservar para probarte
+              }
+            </button>
+          } @else {
+            <a class="boton-agregar" routerLink="/login" [queryParams]="{ returnTo }">Iniciá sesión para comprar</a>
+          }
+        }
+
+        @if (detalle()!.descripcion) {
+          <div class="descripcion">
+            <span class="fs-etiqueta">Descripción</span>
+            <p>{{ detalle()!.descripcion }}</p>
+          </div>
+        }
+
+        <div class="disponibilidad">
+          <span class="fs-etiqueta">Disponibilidad por sucursal</span>
+          @if (!varianteActiva()) {
+            <p class="fs-caption">Elegí talla y color para ver la disponibilidad.</p>
+          } @else {
+            <ul>
+              @for (fila of disponibilidadPorSucursal(); track fila.sucursal.id) {
+                <li>
+                  <span>{{ fila.sucursal.nombre }}</span>
+                  <span [class.disponible]="fila.cantidad > 0">
+                    {{ fila.cantidad > 0 ? 'Disponible (' + fila.cantidad + ')' : 'Agotado' }}
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

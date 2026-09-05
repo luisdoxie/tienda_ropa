@@ -1,0 +1,122 @@
+.reserva {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--fs-espacio-6);
+}
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-3);
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--fs-muted);
+  color: var(--fs-texto);
+}
+
+.chip--preparada,
+.chip--completada {
+  background: var(--fs-exito-suave);
+  color: var(--fs-exito);
+}
+
+.chip--pendiente,
+.chip--en_prueba {
+  background: var(--fs-advertencia-suave);
+  color: var(--fs-advertencia);
+}
+
+.chip--cancelada,
+.chip--expirada {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--fs-error);
+}
+
+.lineas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+  margin-bottom: var(--fs-espacio-4);
+}
+
+.linea {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-3);
+  padding: var(--fs-espacio-3);
+}
+
+.linea-foto {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--fs-radio-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.linea-foto--vacia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fs-acento-suave);
+  color: var(--fs-acento);
+}
+
+.linea-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.linea-nombre {
+  font-weight: 600;
+}
+
+.disponible {
+  color: var(--fs-exito);
+  font-weight: 600;
+}
+
+.historial {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+  margin-bottom: var(--fs-espacio-4);
+}
+
+.fila-historial {
+  display: flex;
+  flex-direction: column;
+  padding: var(--fs-espacio-2) 0;
+  border-bottom: 1px solid var(--fs-borde);
+}
+
+.boton-cancelar {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--fs-espacio-2) var(--fs-espacio-4);
+  border-radius: var(--fs-radio-sm);
+  border: 1px solid var(--fs-error);
+  background: transparent;
+  color: var(--fs-error);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(220, 38, 38, 0.08);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}

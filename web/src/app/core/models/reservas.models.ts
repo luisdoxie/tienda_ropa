@@ -32,6 +32,20 @@ export interface Reserva {
   historial: ReservaHistorialItem[];
 }
 
+export interface ReservaDetalleCrear {
+  variante_id: number;
+  cantidad?: number;
+}
+
+export interface ReservaCrear {
+  sucursal_id: number;
+  fecha_visita: string;
+  hora_visita_desde: string;
+  hora_visita_hasta: string;
+  observacion?: string | null;
+  detalle: ReservaDetalleCrear[];
+}
+
 export interface SeleccionLinea {
   variante_id: number;
   seleccionada: boolean;

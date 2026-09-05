@@ -1,0 +1,66 @@
+.compra {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--fs-espacio-6);
+}
+
+.lineas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+  margin: var(--fs-espacio-4) 0;
+}
+
+.linea {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-3);
+  padding: var(--fs-espacio-3);
+}
+
+.linea-foto {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--fs-radio-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.linea-foto--vacia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fs-acento-suave);
+  color: var(--fs-acento);
+}
+
+.linea-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.linea-nombre {
+  font-weight: 600;
+}
+
+.resumen {
+  padding: var(--fs-espacio-4);
+}
+
+.resumen-fila {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--fs-espacio-1) 0;
+
+  &.descuento {
+    color: var(--fs-exito);
+  }
+
+  &.total {
+    font-weight: 700;
+    font-size: 16px;
+    border-top: 1px solid var(--fs-borde);
+    margin-top: var(--fs-espacio-1);
+    padding-top: var(--fs-espacio-2);
+  }
+}

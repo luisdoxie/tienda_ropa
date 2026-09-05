@@ -9,26 +9,29 @@ import { AuthService } from '../../core/auth.service';
 import { navegarDespuesDeLogin } from '../../core/post-login-redirect';
 
 @Component({
-  selector: 'app-login',
+  selector: 'app-registro',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, ButtonModule, InputTextModule, PasswordModule],
-  templateUrl: './login.component.html',
-  styleUrl: './login.component.scss',
+  templateUrl: './registro.component.html',
 })
-export class LoginComponent {
+export class RegistroComponent {
   protected readonly cargando = signal(false);
-  protected readonly errorLogin = signal<string | null>(null);
+  protected readonly error = signal<string | null>(null);
 
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly returnTo = inject(ActivatedRoute).snapshot.queryParamMap.get('returnTo');
 
-  protected readonly queryParamsRegistro = this.returnTo ? { returnTo: this.returnTo } : {};
+  protected readonly queryParamsLogin = this.returnTo ? { returnTo: this.returnTo } : {};
 
   protected readonly formulario = this.fb.nonNullable.group({
+    nombre: ['', Validators.required],
+    apellido: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required]],
+    telefono: [''],
+    ciNit: [''],
+    password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   enviar(): void {
@@ -38,20 +41,32 @@ export class LoginComponent {
     }
 
     this.cargando.set(true);
-    this.errorLogin.set(null);
-    const { email, password } = this.formulario.getRawValue();
+    this.error.set(null);
+    const { nombre, apellido, email, telefono, ciNit, password } = this.formulario.getRawValue();
 
     this.authService
-      .login(email, password)
-      .pipe(switchMap(() => this.authService.cargarUsuarioActual()))
+      .registrar({
+        nombre,
+        apellido,
+        email,
+        telefono: telefono || null,
+        ci_nit: ciNit || null,
+        password,
+      })
+      .pipe(
+        switchMap(() => this.authService.login(email, password)),
+        switchMap(() => this.authService.cargarUsuarioActual()),
+      )
       .subscribe({
         next: () => {
           this.cargando.set(false);
           navegarDespuesDeLogin(this.router, this.authService, this.returnTo);
         },
-        error: () => {
+        error: (err) => {
           this.cargando.set(false);
-          this.errorLogin.set('Email o contraseña incorrectos.');
+          this.error.set(
+            err?.status === 409 ? 'Ya existe una cuenta con ese email.' : 'No se pudo completar el registro.',
+          );
         },
       });
   }

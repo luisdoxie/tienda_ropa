@@ -1,0 +1,40 @@
+<div class="estado-pago">
+  @if (cargando()) {
+    <div class="panel">
+      <p class="fs-caption">Consultando el estado del pago...</p>
+    </div>
+  } @else if (pago()?.estado === 'aprobado') {
+    <div class="panel">
+      <span class="pi pi-check-circle icono icono--exito"></span>
+      <h1>¡Pago aprobado!</h1>
+      <button type="button" class="boton-continuar" (click)="irAMiCompra()">Ver mi compra</button>
+    </div>
+  } @else if (pago()?.estado === 'rechazado') {
+    <div class="panel">
+      <span class="pi pi-times-circle icono icono--error"></span>
+      <h1>El pago fue rechazado</h1>
+      <p class="fs-caption">Podés intentar de nuevo con el mismo método u otro.</p>
+      <button type="button" class="boton-continuar" [disabled]="reintentando()" (click)="reintentar()">
+        {{ reintentando() ? 'Reintentando...' : 'Reintentar' }}
+      </button>
+    </div>
+  } @else if (agotado()) {
+    <div class="panel">
+      <span class="pi pi-hourglass icono"></span>
+      <h1>Pago pendiente de confirmación</h1>
+      <p class="fs-caption">
+        Todavía no tenemos la confirmación de la pasarela. Podés reintentar el pago o revisar más tarde en
+        "Mis compras".
+      </p>
+      <button type="button" class="boton-continuar" [disabled]="reintentando()" (click)="reintentar()">
+        {{ reintentando() ? 'Reintentando...' : 'Reintentar' }}
+      </button>
+      <a class="auth-enlace" routerLink="/mis-compras">Ver mis compras</a>
+    </div>
+  } @else {
+    <div class="panel">
+      <p class="fs-caption">Esperando la confirmación de la pasarela...</p>
+      <button type="button" class="boton-secundario" (click)="consultarAhora()">Ya completé el pago</button>
+    </div>
+  }
+</div>

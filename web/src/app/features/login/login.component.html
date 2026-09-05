@@ -1,7 +1,8 @@
-<div class="login">
-  <form class="login__tarjeta" [formGroup]="formulario" (ngSubmit)="enviar()">
-    <h1>FashionStore</h1>
-    <p class="login__subtitulo">Back office</p>
+<div class="auth-pantalla">
+  <form class="auth-tarjeta" [formGroup]="formulario" (ngSubmit)="enviar()">
+    <span class="auth-marca">FashionStore</span>
+    <h1 class="auth-titulo">Bienvenido de vuelta</h1>
+    <p class="auth-subtitulo">Ingresá con tu cuenta de FashionStore</p>
 
     <label for="email">Email</label>
     <input id="email" type="email" pInputText formControlName="email" autocomplete="username" />
@@ -15,8 +16,11 @@
       autocomplete="current-password"
     />
 
+    <a class="auth-enlace" routerLink="/recuperar">¿Olvidaste tu contraseña?</a>
+    <a class="auth-enlace" routerLink="/registro" [queryParams]="queryParamsRegistro">¿No tenés cuenta? Registrate</a>
+
     @if (errorLogin()) {
-      <p class="login__error">{{ errorLogin() }}</p>
+      <p class="auth-error">{{ errorLogin() }}</p>
     }
 
     <p-button type="submit" label="Ingresar" [loading]="cargando()" styleClass="w-full" />

@@ -1,0 +1,83 @@
+<div class="marquee-wrap">
+  <div class="marquee">
+    <span>Camisas</span><span>Poleras</span><span>Chamarras</span><span>Probador virtual</span><span>Nueva temporada</span>
+    <span>Camisas</span><span>Poleras</span><span>Chamarras</span><span>Probador virtual</span><span>Nueva temporada</span>
+  </div>
+</div>
+
+<div class="tienda">
+  <section class="hero">
+    <div>
+      <p class="hero-eyebrow">Probador virtual con realidad aumentada</p>
+      <h1>Vestite de otra forma: probate cada prenda antes de decidir.</h1>
+      <p class="hero-sub">
+        Elegí una prenda, activá la cámara y mirá cómo te queda en tiempo real. Sin vestidores, sin vueltas.
+      </p>
+    </div>
+  </section>
+
+  @if (categorias().length) {
+    <div class="pills-fila fs-pill-fila">
+      <button
+        type="button"
+        class="fs-pill"
+        [class.activa]="categoriaSeleccionada() === null"
+        (click)="seleccionarCategoria(null)"
+      >
+        Todo
+      </button>
+      @for (categoria of categorias(); track categoria.id) {
+        <button
+          type="button"
+          class="fs-pill"
+          [class.activa]="categoriaSeleccionada() === categoria.id"
+          (click)="seleccionarCategoria(categoria.id)"
+        >
+          {{ categoria.nombre }}
+        </button>
+      }
+    </div>
+  }
+
+  <div class="buscador">
+    <span class="pi pi-search"></span>
+    <input
+      type="text"
+      placeholder="Buscá por nombre, categoría o estilo"
+      [(ngModel)]="texto"
+      (ngModelChange)="onBuscar()"
+    />
+  </div>
+
+  @if (cargando()) {
+    <p class="fs-caption estado">Cargando catálogo…</p>
+  } @else if (error()) {
+    <div class="estado-error">
+      <p>No se pudo cargar el catálogo.</p>
+      <button type="button" class="boton-reintentar" (click)="cargarProductos()">Reintentar</button>
+    </div>
+  } @else if (!productos().length) {
+    <p class="fs-caption estado">No encontramos productos con ese filtro.</p>
+  } @else {
+    <div class="grid">
+      @for (producto of productos(); track producto.id) {
+        <a class="fs-card producto-tarjeta" [routerLink]="['/producto', producto.id]">
+          <div class="producto-foto">
+            @if (producto.imagen_principal) {
+              <img [src]="producto.imagen_principal" [alt]="producto.nombre" />
+            } @else {
+              <span class="pi pi-image"></span>
+            }
+            @if (producto.admite_probador) {
+              <span class="ar-tag"><span class="pi pi-camera"></span>Probador AR</span>
+            }
+          </div>
+          <div class="producto-cuerpo">
+            <div class="producto-nombre">{{ producto.nombre }}</div>
+            <div class="producto-precio fs-num">{{ producto.precio_base | number: '1.2-2' }}</div>
+          </div>
+        </a>
+      }
+    </div>
+  }
+</div>

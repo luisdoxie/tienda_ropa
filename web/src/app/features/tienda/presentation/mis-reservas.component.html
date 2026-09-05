@@ -1,0 +1,24 @@
+<div class="compras">
+  <h1>Mis reservas</h1>
+
+  @if (cargando()) {
+    <p class="fs-caption">Cargando...</p>
+  } @else if (reservas().length === 0) {
+    <div class="vacio">
+      <p class="fs-caption">Todavía no hiciste ninguna reserva.</p>
+      <a class="auth-enlace" routerLink="/catalogo">Ver catálogo</a>
+    </div>
+  } @else {
+    <div class="lista">
+      @for (reserva of reservas(); track reserva.id) {
+        <a class="fs-card fila" [routerLink]="['/mis-reservas', reserva.id]">
+          <div>
+            <strong>{{ reserva.codigo }}</strong>
+            <div class="fs-caption">{{ reserva.fecha_visita }} · {{ reserva.hora_visita_desde.slice(0, 5) }} - {{ reserva.hora_visita_hasta.slice(0, 5) }}</div>
+          </div>
+          <span class="chip" [class]="'chip--' + reserva.estado">{{ etiquetaEstado(reserva.estado) }}</span>
+        </a>
+      }
+    </div>
+  }
+</div>

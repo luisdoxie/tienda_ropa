@@ -149,6 +149,12 @@ class PayPalGateway(PasarelaBase):
                             # vuelta de ejemplo, no rutas que existan hoy.
                             "return_url": "https://fashionstore.example.com/pago/retorno",
                             "cancel_url": "https://fashionstore.example.com/pago/cancelado",
+                            # Sin esto, PayPal manda primero a la pantalla de
+                            # login (pensada para quien ya tiene cuenta).
+                            # GUEST_CHECKOUT lleva directo al formulario de
+                            # tarjeta, sin necesidad de iniciar sesión.
+                            "landing_page": "GUEST_CHECKOUT",
+                            "user_action": "PAY_NOW",
                         }
                     }
                 },

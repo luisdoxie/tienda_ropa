@@ -54,3 +54,18 @@ export interface TokenRespuesta {
   refresh_token: string;
   token_type: string;
 }
+
+export interface RecuperarRespuesta {
+  detail: string;
+  /** Solo viene informado cuando el backend corre en entorno local (sin servicio de correo real). */
+  token_dev?: string | null;
+}
+
+export interface RegistroRequest {
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono?: string | null;
+  password: string;
+  ci_nit?: string | null;
+}

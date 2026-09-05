@@ -1,0 +1,27 @@
+<div class="checkout">
+  <h1>Pago</h1>
+
+  <div class="fs-card resumen-entrega">
+    <strong>{{ checkoutService.tipoEntrega() === 'retiro' ? 'Retiro en sucursal' : 'Envío a domicilio' }}</strong>
+    @if (checkoutService.costoEnvio() > 0) {
+      <span class="fs-caption">Costo de envío: {{ checkoutService.costoEnvio() | number: '1.2-2' }}</span>
+    }
+  </div>
+
+  <span class="fs-etiqueta">Método de pago</span>
+  <div class="fs-pill-fila">
+    @for (opcion of metodos; track opcion.codigo) {
+      <button type="button" class="fs-pill" [class.activa]="metodo() === opcion.codigo" (click)="elegirMetodo(opcion.codigo)">
+        {{ opcion.etiqueta }}
+      </button>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="auth-error">{{ error() }}</p>
+  }
+
+  <button type="button" class="boton-continuar" [disabled]="procesando()" (click)="pagar()">
+    {{ procesando() ? 'Procesando...' : 'Pagar' }}
+  </button>
+</div>

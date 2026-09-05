@@ -21,3 +21,15 @@ export interface PagoCajaRespuesta {
   pago: Pago;
   cambio: number | null;
 }
+
+export type MetodoPagoPasarela = 'libelula' | 'paypal';
+
+export interface PagoIniciarRequest {
+  venta_id: number;
+  metodo_pago: MetodoPagoPasarela;
+}
+
+export interface PagoIniciarRespuesta {
+  pago: Pago;
+  url_redireccion: string;
+}

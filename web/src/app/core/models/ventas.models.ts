@@ -109,3 +109,61 @@ export interface PromocionActualizar {
   fecha_fin?: string;
   activo?: boolean;
 }
+
+// ---- Carrito (tienda pública) ------------------------------------------------
+
+export interface CarritoDetalleCrear {
+  variante_id: number;
+  cantidad?: number;
+}
+
+export interface CarritoDetalleActualizar {
+  cantidad: number;
+}
+
+export interface CarritoDetalle {
+  id: number;
+  variante_id: number;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+}
+
+export interface Carrito {
+  id: number;
+  cliente_id: number;
+  sucursal_id: number | null;
+  actualizado_en: string;
+  detalle: CarritoDetalle[];
+  subtotal: number;
+}
+
+/** `CarritoDetalle` + los datos resueltos vía /catalogo/variantes/detalle
+ * (el backend no los incluye, ver `catalogo.service` en el backend). */
+export interface CarritoLinea extends CarritoDetalle {
+  productoNombre?: string;
+  imagenPrincipal?: string | null;
+  tallaCodigo?: string | null;
+  colorNombre?: string | null;
+}
+
+export interface CarritoResumenLinea {
+  variante_id: number;
+  cantidad: number;
+  precio_unitario: number;
+  descuento_unitario: number;
+  subtotal: number;
+}
+
+export interface CarritoResumen {
+  lineas: CarritoResumenLinea[];
+  subtotal: number;
+  descuento: number;
+  total: number;
+}
+
+export interface VentaDigitalCrear {
+  sucursal_id: number;
+  costo_envio?: number;
+  reserva_id?: number | null;
+}

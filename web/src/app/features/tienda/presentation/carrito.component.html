@@ -1,0 +1,58 @@
+<div class="carrito">
+  <h1>Tu carrito</h1>
+
+  @if (cargando()) {
+    <p class="fs-caption">Cargando...</p>
+  } @else if (carritoService.lineas().length === 0) {
+    <div class="vacio">
+      <p class="fs-caption">Todavía no agregaste ninguna prenda.</p>
+      <a class="auth-enlace" routerLink="/catalogo">Ver catálogo</a>
+    </div>
+  } @else {
+    <div class="lineas">
+      @for (linea of carritoService.lineas(); track linea.variante_id) {
+        <div class="fs-card linea">
+          @if (linea.imagenPrincipal) {
+            <img class="linea-foto" [src]="linea.imagenPrincipal" alt="" />
+          } @else {
+            <div class="linea-foto linea-foto--vacia"><span class="pi pi-image"></span></div>
+          }
+          <div class="linea-info">
+            <div class="linea-nombre">{{ linea.productoNombre ?? 'Prenda' }}</div>
+            @if (linea.tallaCodigo || linea.colorNombre) {
+              <div class="fs-caption">{{ [linea.tallaCodigo, linea.colorNombre].join(' · ') }}</div>
+            }
+            <div class="linea-precio fs-num">{{ linea.precio_unitario | number: '1.2-2' }}</div>
+          </div>
+          <div class="linea-cantidad">
+            <button type="button" (click)="disminuir(linea.variante_id, linea.cantidad)">-</button>
+            <span>{{ linea.cantidad }}</span>
+            <button type="button" (click)="aumentar(linea.variante_id, linea.cantidad)">+</button>
+          </div>
+          <button type="button" class="linea-quitar" (click)="quitar(linea.variante_id)">Quitar</button>
+        </div>
+      }
+    </div>
+
+    @if (resumen(); as resumen) {
+      <div class="fs-card resumen">
+        <div class="resumen-fila">
+          <span>Subtotal</span>
+          <span class="fs-num">{{ resumen.subtotal | number: '1.2-2' }}</span>
+        </div>
+        @if (resumen.descuento > 0) {
+          <div class="resumen-fila descuento">
+            <span>Descuento</span>
+            <span class="fs-num">-{{ resumen.descuento | number: '1.2-2' }}</span>
+          </div>
+        }
+        <div class="resumen-fila total">
+          <span>Total</span>
+          <span class="fs-num">{{ resumen.total | number: '1.2-2' }}</span>
+        </div>
+      </div>
+    }
+
+    <button type="button" class="boton-continuar" (click)="continuar()">Continuar</button>
+  }
+</div>

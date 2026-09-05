@@ -3,7 +3,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { TokenRespuesta, UsuarioYo } from './models/seguridad.models';
+import { RecuperarRespuesta, RegistroRequest, TokenRespuesta, Usuario, UsuarioYo } from './models/seguridad.models';
 
 const CLAVE_ACCESS_TOKEN = 'fs_access_token';
 const CLAVE_REFRESH_TOKEN = 'fs_refresh_token';
@@ -49,6 +49,21 @@ export class AuthService {
       return null;
     }
     return this.cargarUsuarioActual();
+  }
+
+  registrar(datos: RegistroRequest): Observable<Usuario> {
+    return this.http.post<Usuario>(`${environment.apiUrl}/auth/registro`, datos);
+  }
+
+  solicitarRecuperacion(email: string): Observable<RecuperarRespuesta> {
+    return this.http.post<RecuperarRespuesta>(`${environment.apiUrl}/auth/recuperar`, { email });
+  }
+
+  confirmarRecuperacion(token: string, password: string): Observable<{ detail: string }> {
+    return this.http.post<{ detail: string }>(`${environment.apiUrl}/auth/recuperar/confirmar`, {
+      token,
+      password,
+    });
   }
 
   logout(): void {

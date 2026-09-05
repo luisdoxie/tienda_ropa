@@ -1,3 +1,11 @@
+/** Fila de GET /inventario/disponibilidad -- público, lo consume el detalle
+ * de producto y el checkout para saber qué sucursal tiene stock. */
+export interface Disponibilidad {
+  variante_id: number;
+  sucursal_id: number;
+  cantidad_disponible: number;
+}
+
 export interface TipoMovimiento {
   id: number;
   codigo: string;

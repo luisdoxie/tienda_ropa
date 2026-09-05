@@ -1,0 +1,25 @@
+<div class="compras">
+  <h1>Mis compras</h1>
+
+  @if (cargando()) {
+    <p class="fs-caption">Cargando...</p>
+  } @else if (compras().length === 0) {
+    <div class="vacio">
+      <p class="fs-caption">Todavía no hiciste ninguna compra.</p>
+      <a class="auth-enlace" routerLink="/catalogo">Ver catálogo</a>
+    </div>
+  } @else {
+    <div class="lista">
+      @for (venta of compras(); track venta.id) {
+        <a class="fs-card fila" [routerLink]="['/mis-compras', venta.id]">
+          <div>
+            <strong>{{ venta.codigo }}</strong>
+            <div class="fs-caption">{{ venta.fecha | date: 'medium' }}</div>
+          </div>
+          <span class="chip" [class]="'chip--' + venta.estado">{{ etiquetaEstado(venta.estado) }}</span>
+          <span class="fs-num total">{{ venta.total | number: '1.2-2' }}</span>
+        </a>
+      }
+    </div>
+  }
+</div>

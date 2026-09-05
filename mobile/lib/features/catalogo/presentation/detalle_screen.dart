@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/state/auth_controller.dart';
+import '../../compras/state/carrito_controller.dart';
 import '../../favoritos/state/favoritos_controller.dart';
 import '../../reservas/models/item_reserva_temporal.dart';
 import '../../reservas/state/carrito_reserva_controller.dart';
@@ -96,6 +98,7 @@ class _Contenido extends ConsumerWidget {
     final coloresIds = detalle.variantes.map((v) => v.colorId).toSet();
     final variante = _varianteActiva;
     final precio = variante?.precioEfectivo ?? detalle.precioBase;
+    final autenticado = ref.watch(authControllerProvider.select((s) => s.estaAutenticado));
 
     return ListView(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -112,7 +115,7 @@ class _Contenido extends ConsumerWidget {
                   Expanded(
                     child: Text(detalle.nombre, style: Theme.of(context).textTheme.headlineMedium),
                   ),
-                  if (variante != null) _BotonFavorito(varianteId: variante.id),
+                  if (variante != null && autenticado) _BotonFavorito(varianteId: variante.id),
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -121,8 +124,13 @@ class _Contenido extends ConsumerWidget {
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.acento),
               ),
               const SizedBox(height: AppSpacing.md),
-              if (variante != null)
+              if (variante != null && autenticado) ...[
+                _BotonAgregarCarrito(varianteId: variante.id),
+                const SizedBox(height: AppSpacing.sm),
                 _BotonAgregarReserva(detalle: detalle, variante: variante, tallaId: tallaId!, colorId: colorId!),
+              ] else if (variante != null && !autenticado) ...[
+                _BotonIniciarSesionParaComprar(productoId: detalle.id),
+              ],
               const SizedBox(height: AppSpacing.lg),
 
               const Text('Talla', style: TextStyle(color: AppColors.textoTenue, fontSize: 12)),
@@ -250,6 +258,21 @@ class _BotonFavorito extends ConsumerWidget {
   }
 }
 
+class _BotonIniciarSesionParaComprar extends StatelessWidget {
+  const _BotonIniciarSesionParaComprar({required this.productoId});
+
+  final int productoId;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: () => context.push('/login?returnTo=${Uri.encodeComponent('/producto/$productoId')}'),
+      icon: const Icon(Icons.login),
+      label: const Text('Iniciá sesión para comprar'),
+    );
+  }
+}
+
 class _DisponibilidadPorSucursal extends ConsumerWidget {
   const _DisponibilidadPorSucursal({required this.varianteId});
 
@@ -360,6 +383,55 @@ class _BotonAgregarReserva extends ConsumerWidget {
         orElse: () => const SizedBox.shrink(),
       ),
       orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _BotonAgregarCarrito extends ConsumerStatefulWidget {
+  const _BotonAgregarCarrito({required this.varianteId});
+
+  final int varianteId;
+
+  @override
+  ConsumerState<_BotonAgregarCarrito> createState() => _BotonAgregarCarritoState();
+}
+
+class _BotonAgregarCarritoState extends ConsumerState<_BotonAgregarCarrito> {
+  bool _agregando = false;
+
+  Future<void> _agregar() async {
+    setState(() => _agregando = true);
+    try {
+      await ref.read(carritoControllerProvider.notifier).agregar(varianteId: widget.varianteId, cantidad: 1);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Agregado al carrito'),
+          action: SnackBarAction(label: 'Ver carrito', onPressed: () => context.push('/carrito')),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No se pudo agregar al carrito. Probá de nuevo.')));
+    } finally {
+      if (mounted) setState(() => _agregando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: _agregando ? null : _agregar,
+      icon: _agregando
+          ? const SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : const Icon(Icons.shopping_bag_outlined),
+      label: const Text('Agregar al carrito'),
     );
   }
 }

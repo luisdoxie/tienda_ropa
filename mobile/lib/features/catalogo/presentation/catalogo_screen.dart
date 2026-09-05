@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/state/auth_controller.dart';
+import '../../compras/state/carrito_controller.dart';
 import '../models/catalogo_item.dart';
 import '../models/filtros_catalogo.dart';
 import '../state/catalogo_controller.dart';
 import 'filtros_sheet.dart';
+
+enum _AccionMenu { favoritos, carrito, compras, reservas, salir, iniciarSesion }
 
 class CatalogoScreen extends ConsumerStatefulWidget {
   const CatalogoScreen({super.key});
@@ -62,6 +65,10 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
   @override
   Widget build(BuildContext context) {
     final estado = ref.watch(catalogoControllerProvider);
+    final autenticado = ref.watch(authControllerProvider.select((s) => s.estaAutenticado));
+    // Para un invitado no se debe ni mirar carritoControllerProvider: su
+    // constructor dispara un GET /carrito (autenticado) apenas se instancia.
+    final cantidadEnCarrito = autenticado ? ref.watch(carritoControllerProvider).valueOrNull?.detalle.length ?? 0 : 0;
 
     return Scaffold(
       backgroundColor: AppColors.fondo,
@@ -73,20 +80,85 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             tooltip: 'Probador virtual',
             onPressed: () => context.push('/probador'),
           ),
-          IconButton(
-            icon: const Icon(Icons.favorite_border),
-            tooltip: 'Favoritos',
-            onPressed: () => context.push('/favoritos'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.calendar_month_outlined),
-            tooltip: 'Mis reservas',
-            onPressed: () => context.push('/reservas'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+          PopupMenuButton<_AccionMenu>(
+            tooltip: 'Más opciones',
+            icon: Badge(
+              label: Text('$cantidadEnCarrito'),
+              isLabelVisible: cantidadEnCarrito > 0,
+              child: const Icon(Icons.more_vert),
+            ),
+            onSelected: (accion) {
+              switch (accion) {
+                case _AccionMenu.favoritos:
+                  context.push('/favoritos');
+                case _AccionMenu.carrito:
+                  context.push('/carrito');
+                case _AccionMenu.compras:
+                  context.push('/compras');
+                case _AccionMenu.reservas:
+                  context.push('/reservas');
+                case _AccionMenu.salir:
+                  ref.read(authControllerProvider.notifier).logout();
+                case _AccionMenu.iniciarSesion:
+                  context.push('/login');
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: _AccionMenu.favoritos,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.favorite_border),
+                  title: Text('Favoritos'),
+                ),
+              ),
+              PopupMenuItem(
+                value: _AccionMenu.carrito,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Badge(
+                    label: Text('$cantidadEnCarrito'),
+                    isLabelVisible: cantidadEnCarrito > 0,
+                    child: const Icon(Icons.shopping_bag_outlined),
+                  ),
+                  title: const Text('Carrito'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: _AccionMenu.compras,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.receipt_long_outlined),
+                  title: Text('Mis compras'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: _AccionMenu.reservas,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.calendar_month_outlined),
+                  title: Text('Mis reservas'),
+                ),
+              ),
+              const PopupMenuDivider(),
+              autenticado
+                  ? const PopupMenuItem(
+                      value: _AccionMenu.salir,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.logout),
+                        title: Text('Cerrar sesión'),
+                      ),
+                    )
+                  : const PopupMenuItem(
+                      value: _AccionMenu.iniciarSesion,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.login),
+                        title: Text('Iniciar sesión'),
+                      ),
+                    ),
+            ],
           ),
         ],
       ),

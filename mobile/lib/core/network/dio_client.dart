@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import 'token_storage.dart';
 
-const _rutasPublicas = ['/auth/login', '/auth/registro', '/auth/refresh', '/auth/recuperar'];
+const _rutasPublicas = ['/auth/login', '/auth/registro', '/auth/refresh', '/auth/recuperar', '/catalogo'];
 
 bool _esRutaPublica(String path) => _rutasPublicas.any((ruta) => path.contains(ruta));
 

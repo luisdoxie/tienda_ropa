@@ -10,6 +10,7 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 import { environment } from '../../../environments/environment';
+import { fechaLocalIso } from '../../core/date-utils';
 import { VarianteBusqueda } from '../../core/models/catalogo.models';
 import { Empleado } from '../../core/models/organizacion.models';
 import { MetodoPagoCaja, Pago, PagoCajaRequest, PagoCajaRespuesta } from '../../core/models/pagos.models';
@@ -459,11 +460,4 @@ export class CajaComponent implements OnInit {
 
 function redondear(valor: number): number {
   return Math.round(valor * 100) / 100;
-}
-
-function fechaLocalIso(fecha: Date): string {
-  const y = fecha.getFullYear();
-  const m = String(fecha.getMonth() + 1).padStart(2, '0');
-  const d = String(fecha.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
 }

@@ -1,0 +1,109 @@
+<div class="saludo-fila">
+  <div>
+    <p class="saludo">Hola, {{ usuario()?.nombre }}</p>
+    <p class="saludo-sub">{{ sucursalNombre() ?? 'Sin sucursal asignada' }}</p>
+  </div>
+  <div class="saludo-fecha">{{ fechaHoy }}</div>
+</div>
+
+@if (!cargando() && sucursalId() === null) {
+  <p class="aviso">
+    No tenés una sucursal asignada. Pedile a un administrador que te asigne una para ver los indicadores.
+  </p>
+}
+
+@if (sucursalId() !== null) {
+  <div class="stat-fila">
+    @if (puedeVentas()) {
+      <div class="fs-card stat-tarjeta">
+        <div class="stat-etiqueta">Ventas de hoy · {{ ticketsHoy() }} tickets</div>
+        <div class="stat-valor fs-num">{{ totalVentasHoy() | number: '1.2-2' }}</div>
+      </div>
+    }
+    @if (puedeInventario()) {
+      <div class="fs-card stat-tarjeta">
+        <div class="stat-etiqueta">Alertas de stock bajo</div>
+        <div class="stat-valor fs-num">{{ alertasStock().length }}</div>
+      </div>
+    }
+    @if (puedeReservas()) {
+      <div class="fs-card stat-tarjeta">
+        <div class="stat-etiqueta">Reservas de hoy</div>
+        <div class="stat-valor fs-num">{{ totalReservasHoy() }}</div>
+      </div>
+    }
+  </div>
+
+  @if (puedeVentas() && vendidosHoy().length) {
+    <section class="seccion">
+      <h2>Se vendió hoy</h2>
+      <div class="tarjeta-fila">
+        @for (item of vendidosHoy(); track item.variante_id) {
+          <div class="fs-card producto-tarjeta">
+            <div class="producto-foto">
+              @if (item.imagen) {
+                <img [src]="item.imagen" [alt]="item.nombre" />
+              } @else {
+                <span class="pi pi-image"></span>
+              }
+            </div>
+            <div class="producto-cuerpo">
+              <div class="producto-nombre">{{ item.nombre }}</div>
+              <div class="producto-meta">
+                <span class="fs-caption">vendidas</span>
+                <span class="fs-num">×{{ item.cantidad }}</span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  @if (puedeInventario() && alertasStock().length) {
+    <section class="seccion">
+      <h2>Stock bajo</h2>
+      <div class="tarjeta-fila">
+        @for (fila of alertasStock(); track fila.variante_id) {
+          <div class="fs-card producto-tarjeta">
+            <div class="producto-foto">
+              @if (fila.imagen) {
+                <img [src]="fila.imagen" [alt]="fila.producto" />
+              } @else {
+                <span class="pi pi-image"></span>
+              }
+            </div>
+            <div class="producto-cuerpo">
+              <div class="producto-nombre">{{ fila.producto }}</div>
+              <div class="producto-meta">
+                <span class="fs-caption">quedan {{ fila.cantidad_disponible }}</span>
+                <span class="fs-caption">mín. {{ fila.stock_minimo }}</span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  @if (puedeReservas()) {
+    <section class="seccion">
+      <h2>Reservas de hoy</h2>
+      <div class="pills-fila">
+        @for (r of resumenReservas(); track r.estado) {
+          <span class="pill">
+            <span class="pill-punto" [style.background]="r.color"></span>
+            {{ r.etiqueta }} <span class="fs-num">{{ r.cantidad }}</span>
+          </span>
+        }
+      </div>
+      @if (totalReservasHoy()) {
+        <div class="barra-apilada">
+          @for (r of resumenReservas(); track r.estado) {
+            <span [style.width.%]="(r.cantidad / totalReservasHoy()) * 100" [style.background]="r.color"></span>
+          }
+        </div>
+      }
+    </section>
+  }
+}

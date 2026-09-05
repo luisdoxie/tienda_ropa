@@ -116,6 +116,16 @@ class RecuperarRequest(BaseModel):
     email: EmailStr
 
 
+class RecuperarConfirmarRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=72)
+
+
+class RecuperarRespuesta(BaseModel):
+    detail: str
+    token_dev: str | None = None
+
+
 class TokenRespuesta(BaseModel):
     access_token: str
     refresh_token: str

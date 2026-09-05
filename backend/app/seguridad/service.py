@@ -89,17 +89,35 @@ def refrescar_token(db: Session, refresh_token: str) -> TokenRespuesta:
     return _generar_tokens(usuario.id, roles, permisos)
 
 
-def solicitar_recuperacion(db: Session, email: str) -> None:
+def solicitar_recuperacion(db: Session, email: str) -> str | None:
     """Genera un token de recuperación si el email existe.
 
     Todavía no hay un servicio de correo en el proyecto, así que el token se
-    deja en el log para pruebas manuales. La respuesta al cliente es siempre
-    genérica (ver router) para no revelar si el email está registrado.
+    deja en el log para pruebas manuales, y se devuelve acá para que el
+    router lo incluya en la respuesta solo en entorno local (ver
+    `RecuperarRespuesta.token_dev`). La respuesta al cliente es siempre
+    genérica en cuanto al mensaje (ver router) para no revelar si el email
+    está registrado.
     """
     usuario = usuario_repo.obtener_por_email(db, email)
-    if usuario is not None and usuario.activo:
-        token = crear_reset_token(usuario.id)
-        logger.info("Token de recuperación para %s: %s", email, token)
+    if usuario is None or not usuario.activo:
+        return None
+
+    token = crear_reset_token(usuario.id)
+    logger.info("Token de recuperación para %s: %s", email, token)
+    return token
+
+
+def confirmar_recuperacion(db: Session, token: str, password: str) -> None:
+    payload = decodificar_token(token)
+    if payload.get("tipo") != "reset":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+
+    usuario = db.get(Usuario, int(payload["sub"]))
+    if usuario is None or not usuario.activo:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+
+    usuario_repo.actualizar_password(db, usuario, password)
 
 
 def obtener_usuario(db: Session, usuario_id: int) -> Usuario:

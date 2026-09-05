@@ -54,6 +54,10 @@ class UsuarioRepository(CRUDBase[Usuario, UsuarioCrear, UsuarioActualizar]):
         db.refresh(usuario)
         return usuario
 
+    def actualizar_password(self, db: Session, usuario: Usuario, password: str) -> None:
+        usuario.password_hash = hash_password(password)
+        db.commit()
+
     def asignar_roles(self, db: Session, usuario: Usuario, nombres_rol: list[str]) -> Usuario:
         nombres_unicos = set(nombres_rol)
         roles = list(

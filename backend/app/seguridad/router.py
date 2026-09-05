@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.deps import ParametrosPaginacion, parametros_paginacion
+from app.core.rate_limit import limiter
 from app.core.security import get_current_user, permisos_de_usuario, require_permission
 from app.seguridad import service
 from app.seguridad.repository import RolRepository, UsuarioRepository
@@ -12,7 +14,9 @@ from app.seguridad.schemas import (
     ClientePerfilActualizar,
     ClientePerfilRespuesta,
     LoginRequest,
+    RecuperarConfirmarRequest,
     RecuperarRequest,
+    RecuperarRespuesta,
     RefreshRequest,
     RegistroRequest,
     RolActualizar,
@@ -58,10 +62,24 @@ def yo(usuario=Depends(get_current_user), db: Session = Depends(get_db)) -> Usua
     return UsuarioYoRespuesta(**base.model_dump(), permisos=permisos_de_usuario(db, usuario.id))
 
 
-@auth_router.post("/recuperar", status_code=status.HTTP_202_ACCEPTED)
-def recuperar(datos: RecuperarRequest, db: Session = Depends(get_db)) -> dict[str, str]:
-    service.solicitar_recuperacion(db, datos.email)
-    return {"detail": "Si el correo está registrado, se enviarán instrucciones de recuperación."}
+@auth_router.post("/recuperar", response_model=RecuperarRespuesta, status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/minute")
+def recuperar(request: Request, datos: RecuperarRequest, db: Session = Depends(get_db)) -> RecuperarRespuesta:
+    token = service.solicitar_recuperacion(db, datos.email)
+    token_dev = token if get_settings().environment == "local" else None
+    return RecuperarRespuesta(
+        detail="Si el correo está registrado, se enviarán instrucciones de recuperación.",
+        token_dev=token_dev,
+    )
+
+
+@auth_router.post("/recuperar/confirmar", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+def recuperar_confirmar(
+    request: Request, datos: RecuperarConfirmarRequest, db: Session = Depends(get_db)
+) -> dict[str, str]:
+    service.confirmar_recuperacion(db, datos.token, datos.password)
+    return {"detail": "Contraseña actualizada."}
 
 
 # ---- /api/v1/roles -----------------------------------------------------------

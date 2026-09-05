@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,7 @@ load_dotenv()
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.exceptions import registrar_handlers
+from app.core.rate_limit import limiter
 from app.abastecimiento.router import routers as abastecimiento_routers
 from app.catalogo.router import routers as catalogo_routers
 from app.core.router import routers as core_routers
@@ -32,6 +35,12 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 app = FastAPI(title="FashionStore API", version="0.1.0")
+
+# Rate limiting: por ahora solo lo usan los endpoints públicos del
+# catálogo (ver catalogo/router.py) — es el punto más expuesto a tráfico
+# anónimo desde que existe /catalogo en el web.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

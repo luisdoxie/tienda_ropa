@@ -1,0 +1,18 @@
+<h1>Tallas</h1>
+
+<app-tabla-generica endpoint="/tallas" [columnas]="columnas" (crear)="abrirCrear()" (editar)="abrirEditar($event)" />
+
+<p-dialog header="Talla" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '360px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="codigo">Código</label>
+    <input id="codigo" pInputText formControlName="codigo" placeholder="M, XL, 42..." />
+
+    <label for="descripcion">Descripción</label>
+    <input id="descripcion" pInputText formControlName="descripcion" />
+
+    <label for="orden">Orden</label>
+    <p-inputnumber inputId="orden" formControlName="orden" [useGrouping]="false" />
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

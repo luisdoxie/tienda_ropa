@@ -1,0 +1,18 @@
+<h1>Colores</h1>
+
+<app-tabla-generica endpoint="/colores" [columnas]="columnas" (crear)="abrirCrear()" (editar)="abrirEditar($event)" />
+
+<p-dialog header="Color" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '360px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="hex">Color (hex, opcional)</label>
+    <input id="hex" pInputText formControlName="codigo_hex" placeholder="#9A3E1F" />
+    @if (formulario.controls.codigo_hex.invalid && formulario.controls.codigo_hex.touched) {
+      <span class="auth-error">Formato inválido, usá #RRGGBB.</span>
+    }
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

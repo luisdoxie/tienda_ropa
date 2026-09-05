@@ -14,8 +14,45 @@
   <div class="layout__contenido">
     <header class="layout__barra">
       <span>{{ usuario()?.nombre }} {{ usuario()?.apellido }}</span>
-      <p-button label="Salir" icon="pi pi-sign-out" size="small" severity="secondary" (onClick)="cerrarSesion()" />
+
+      <div class="layout__barra-acciones">
+        <button
+          type="button"
+          class="layout__campana"
+          aria-label="Notificaciones"
+          (click)="popoverNotificaciones.toggle($event)"
+        >
+          <i class="pi pi-bell"></i>
+          @if (notificacionesService.noLeidas() > 0) {
+            <span class="layout__campana-badge">{{ notificacionesService.noLeidas() }}</span>
+          }
+        </button>
+
+        <p-button label="Salir" icon="pi pi-sign-out" size="small" severity="secondary" (onClick)="cerrarSesion()" />
+      </div>
     </header>
+
+    <p-popover #popoverNotificaciones>
+      <div class="layout__notificaciones">
+        @if (notificacionesService.notificaciones().length === 0) {
+          <p class="fs-caption">No tenés notificaciones.</p>
+        } @else {
+          @for (n of notificacionesService.notificaciones(); track n.id) {
+            <div class="layout__notificacion" [class.no-leida]="!n.leida">
+              <div class="layout__notificacion-cuerpo">
+                <strong>{{ n.titulo }}</strong>
+                @if (n.mensaje) {
+                  <p class="fs-caption">{{ n.mensaje }}</p>
+                }
+              </div>
+              @if (!n.leida) {
+                <button type="button" (click)="marcarLeida(n.id)">Marcar leída</button>
+              }
+            </div>
+          }
+        }
+      </div>
+    </p-popover>
 
     <main class="layout__panel">
       <router-outlet />

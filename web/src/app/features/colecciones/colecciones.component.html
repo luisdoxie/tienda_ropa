@@ -1,0 +1,26 @@
+<h1>Colecciones</h1>
+
+<app-tabla-generica endpoint="/colecciones" [columnas]="columnas" (crear)="abrirCrear()" (editar)="abrirEditar($event)" />
+
+<p-dialog header="Colección" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '400px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="descripcion">Descripción</label>
+    <input id="descripcion" pInputText formControlName="descripcion" />
+
+    <label for="temporada">Temporada (opcional)</label>
+    <p-select
+      inputId="temporada"
+      formControlName="temporada_id"
+      [options]="temporadas()"
+      optionLabel="nombre"
+      optionValue="id"
+      [showClear]="true"
+      placeholder="Ninguna"
+    />
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

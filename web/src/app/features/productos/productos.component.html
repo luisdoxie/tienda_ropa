@@ -1,0 +1,190 @@
+<h1>Productos</h1>
+
+<app-tabla-generica endpoint="/productos" [columnas]="columnas" (crear)="abrirCrear()" (editar)="abrirEditar($event)" />
+
+<p-dialog
+  [header]="editando() ? 'Editar producto' : 'Nuevo producto'"
+  [(visible)]="dialogoVisible"
+  [modal]="true"
+  [style]="{ width: '640px' }"
+>
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="codigo">Código</label>
+    <input id="codigo" pInputText formControlName="codigo" />
+
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="descripcion">Descripción</label>
+    <input id="descripcion" pInputText formControlName="descripcion" />
+
+    <label for="categoria">Categoría</label>
+    <p-select
+      inputId="categoria"
+      formControlName="categoria_id"
+      [options]="categorias()"
+      optionLabel="nombre"
+      optionValue="id"
+      placeholder="Seleccioná una categoría"
+    />
+
+    <label for="material">Material (opcional)</label>
+    <p-select
+      inputId="material"
+      formControlName="material_id"
+      [options]="materiales()"
+      optionLabel="nombre"
+      optionValue="id"
+      [showClear]="true"
+      placeholder="Ninguno"
+    />
+
+    <label for="temporada">Temporada (opcional)</label>
+    <p-select
+      inputId="temporada"
+      formControlName="temporada_id"
+      [options]="temporadas()"
+      optionLabel="nombre"
+      optionValue="id"
+      [showClear]="true"
+      placeholder="Ninguna"
+    />
+
+    <label for="coleccion">Colección (opcional)</label>
+    <p-select
+      inputId="coleccion"
+      formControlName="coleccion_id"
+      [options]="colecciones()"
+      optionLabel="nombre"
+      optionValue="id"
+      [showClear]="true"
+      placeholder="Ninguna"
+    />
+
+    <label for="genero">Género</label>
+    <p-select inputId="genero" formControlName="genero" [options]="opcionesGenero" optionLabel="label" optionValue="value" />
+
+    <label for="precio_base">Precio base</label>
+    <p-inputnumber inputId="precio_base" formControlName="precio_base" mode="currency" currency="BOB" locale="es-BO" />
+
+    <div class="formulario__checkbox">
+      <p-checkbox inputId="admite_probador" formControlName="admite_probador" [binary]="true" />
+      <label for="admite_probador">Admite probador virtual</label>
+    </div>
+
+    @if (!editando()) {
+      <label for="tallas">Tallas</label>
+      <p-select
+        inputId="tallas"
+        formControlName="tallas_ids"
+        [options]="tallas()"
+        optionLabel="codigo"
+        optionValue="id"
+        [multiple]="true"
+        placeholder="Elegí una o más tallas"
+      />
+
+      <label for="colores">Colores</label>
+      <p-select
+        inputId="colores"
+        formControlName="colores_ids"
+        [options]="colores()"
+        optionLabel="nombre"
+        optionValue="id"
+        [multiple]="true"
+        placeholder="Elegí uno o más colores"
+      />
+      <p class="fs-caption">Se crea una variante por cada combinación de talla y color elegidas.</p>
+    }
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+
+  @if (editando()) {
+    <div class="seccion-anidada">
+      <h3>Variantes</h3>
+      @if (variantes().length === 0) {
+        <p class="fs-caption">Sin variantes todavía.</p>
+      } @else {
+        <table class="tabla-variantes">
+          <thead>
+            <tr>
+              <th>Talla</th>
+              <th>Color</th>
+              <th>SKU</th>
+              <th>Precio (vacío = precio base)</th>
+              <th>Activo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (variante of variantes(); track variante.id) {
+              <tr>
+                <td>{{ tallaCodigo(variante.talla_id) }}</td>
+                <td>{{ colorNombre(variante.color_id) }}</td>
+                <td>{{ variante.sku }}</td>
+                <td>
+                  <p-inputnumber
+                    [ngModel]="variante.precio"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="actualizarPrecioVariante(variante, $event)"
+                    mode="currency"
+                    currency="BOB"
+                    locale="es-BO"
+                  />
+                </td>
+                <td>
+                  <p-checkbox
+                    [ngModel]="variante.activo"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="alternarActivoVariante(variante, $event)"
+                    [binary]="true"
+                  />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+      <p-button label="Agregar tallas/colores" [text]="true" (onClick)="abrirDialogoVariantes()" />
+    </div>
+
+    <div class="seccion-anidada">
+      <h3>Imágenes</h3>
+      <div class="grilla-imagenes">
+        @for (imagen of imagenes(); track imagen.id) {
+          <div class="tarjeta-imagen">
+            <img [src]="imagen.url" alt="" />
+            @if (imagen.es_principal) {
+              <span class="badge-principal">Principal</span>
+            }
+            <div class="acciones-imagen">
+              @if (!imagen.es_principal) {
+                <button type="button" (click)="marcarPrincipal(imagen)">Marcar principal</button>
+              }
+              <button type="button" class="eliminar" (click)="eliminarImagen(imagen)">Eliminar</button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <form [formGroup]="formularioImagen" (ngSubmit)="subirImagen()" class="formulario formulario-imagen">
+        <input type="file" accept="image/*" (change)="onArchivoSeleccionado($event)" />
+        <label for="color_imagen">Color (opcional, para fotos por color)</label>
+        <p-select
+          inputId="color_imagen"
+          formControlName="color_id"
+          [options]="colores()"
+          optionLabel="nombre"
+          optionValue="id"
+          [showClear]="true"
+          placeholder="Cualquier color"
+        />
+        <div class="formulario__checkbox">
+          <p-checkbox inputId="es_principal" formControlName="es_principal" [binary]="true" />
+          <label for="es_principal">Marcar como principal</label>
+        </div>
+        <p-button type="submit" label="Subir imagen" [loading]="subiendoImagen()" styleClass="w-full" />
+      </form>
+    </div>
+  }
+</p-dialog>

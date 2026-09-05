@@ -11,6 +11,17 @@ export interface Proveedor {
   creado_en: string;
 }
 
+export interface ProveedorCrear {
+  nombre: string;
+  nit?: string | null;
+  contacto?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  direccion?: string | null;
+}
+
+export type ProveedorActualizar = Partial<ProveedorCrear>;
+
 export interface RecepcionDetalleCrear {
   variante_id: number;
   cantidad: number;

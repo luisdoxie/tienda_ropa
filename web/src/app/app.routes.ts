@@ -53,6 +53,46 @@ export const routes: Routes = [
           import('./features/inventario/inventario.component').then((m) => m.InventarioComponent),
       },
       {
+        path: 'productos',
+        canActivate: [permisoGuard('catalogo.gestionar')],
+        loadComponent: () =>
+          import('./features/productos/productos.component').then((m) => m.ProductosComponent),
+      },
+      {
+        path: 'categorias',
+        canActivate: [permisoGuard('catalogo.gestionar')],
+        loadComponent: () =>
+          import('./features/categorias/categorias.component').then((m) => m.CategoriasComponent),
+      },
+      {
+        path: 'tallas',
+        canActivate: [permisoGuard('catalogo.gestionar')],
+        loadComponent: () => import('./features/tallas/tallas.component').then((m) => m.TallasComponent),
+      },
+      {
+        path: 'colores',
+        canActivate: [permisoGuard('catalogo.gestionar')],
+        loadComponent: () => import('./features/colores/colores.component').then((m) => m.ColoresComponent),
+      },
+      {
+        path: 'temporadas',
+        canActivate: [permisoGuard('catalogo.gestionar')],
+        loadComponent: () =>
+          import('./features/temporadas/temporadas.component').then((m) => m.TemporadasComponent),
+      },
+      {
+        path: 'colecciones',
+        canActivate: [permisoGuard('catalogo.gestionar')],
+        loadComponent: () =>
+          import('./features/colecciones/colecciones.component').then((m) => m.ColeccionesComponent),
+      },
+      {
+        path: 'proveedores',
+        canActivate: [permisoGuard('abastecimiento.gestionar')],
+        loadComponent: () =>
+          import('./features/proveedores/proveedores.component').then((m) => m.ProveedoresComponent),
+      },
+      {
         path: 'reservas',
         canActivate: [permisoGuard('reservas.gestionar_sucursal')],
         loadComponent: () =>

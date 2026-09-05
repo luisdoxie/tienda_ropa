@@ -1,0 +1,26 @@
+<h1>Categorías</h1>
+
+<app-tabla-generica endpoint="/categorias" [columnas]="columnas" (crear)="abrirCrear()" (editar)="abrirEditar($event)" />
+
+<p-dialog header="Categoría" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '400px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" pInputText formControlName="nombre" />
+
+    <label for="descripcion">Descripción</label>
+    <input id="descripcion" pInputText formControlName="descripcion" />
+
+    <label for="padre">Categoría padre (opcional)</label>
+    <p-select
+      inputId="padre"
+      formControlName="categoria_padre_id"
+      [options]="categorias()"
+      optionLabel="nombre"
+      optionValue="id"
+      [showClear]="true"
+      placeholder="Ninguna"
+    />
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

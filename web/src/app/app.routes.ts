@@ -33,6 +33,7 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./features/tienda/tienda-shell.component').then((m) => m.TiendaShellComponent),
     children: [
+      { path: '', pathMatch: 'full', redirectTo: 'catalogo' },
       {
         path: 'catalogo',
         loadComponent: () =>

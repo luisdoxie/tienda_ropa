@@ -16,4 +16,11 @@ def listar_notificaciones(
     return list(service.listar_notificaciones(db, usuario.id))
 
 
+@router.put("/{notificacion_id}/leida", response_model=NotificacionRespuesta)
+def marcar_leida(
+    notificacion_id: int, usuario=Depends(get_current_user), db: Session = Depends(get_db)
+) -> NotificacionRespuesta:
+    return service.marcar_leida(db, usuario.id, notificacion_id)
+
+
 routers = [router]

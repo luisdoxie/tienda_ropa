@@ -27,3 +27,7 @@ def crear_notificacion(
 
 def listar_notificaciones(db: Session, usuario_id: int) -> list[Notificacion]:
     return notificacion_repo.listar_por_usuario(db, usuario_id)
+
+
+def marcar_leida(db: Session, usuario_id: int, notificacion_id: int) -> Notificacion:
+    return notificacion_repo.marcar_leida(db, usuario_id, notificacion_id)

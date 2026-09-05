@@ -1,12 +1,13 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import NoEncontradoError
 from app.core.models import Notificacion
 
 
 class NotificacionRepository:
-    """Sin `activo`: una notificación no se desactiva, se marca leída (fuera
-    de alcance de esta etapa) o simplemente se acumula."""
+    """Sin `activo`: una notificación no se desactiva, se marca leída o
+    simplemente se acumula."""
 
     def crear(
         self,
@@ -32,3 +33,12 @@ class NotificacionRepository:
                 .order_by(Notificacion.creado_en.desc())
             )
         )
+
+    def marcar_leida(self, db: Session, usuario_id: int, notificacion_id: int) -> Notificacion:
+        notificacion = db.get(Notificacion, notificacion_id)
+        if notificacion is None or notificacion.usuario_id != usuario_id:
+            raise NoEncontradoError("Notificación no encontrada")
+        notificacion.leida = True
+        db.commit()
+        db.refresh(notificacion)
+        return notificacion

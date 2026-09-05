@@ -34,14 +34,14 @@
   gap: var(--fs-espacio-2);
   padding: var(--fs-espacio-2) var(--fs-espacio-3);
   border: 1px solid var(--fs-borde);
-  border-radius: var(--fs-radio);
-  background: var(--fs-fondo);
+  border-radius: var(--fs-radio-sm);
+  background: var(--fs-superficie);
   cursor: pointer;
   font-size: 13px;
 
   &.activo {
     border-color: var(--fs-acento);
-    background: var(--fs-fondo-alterno);
+    background: var(--fs-acento-suave);
   }
 }
 
@@ -56,7 +56,7 @@
   display: inline-block;
   max-width: 560px;
   border: 1px solid var(--fs-borde);
-  border-radius: var(--fs-radio);
+  border-radius: var(--fs-radio-md);
   overflow: hidden;
   // Fondo a cuadros para que se note el canal alfa del PNG.
   background-image:

@@ -6,8 +6,11 @@ Proyecto académico, Sistemas II, UAGRM. Metodología PUDS, modelado UML 2.5.
 ## Stack
 - Backend: Python 3.13 + FastAPI + SQLAlchemy 2.0 + Pydantic v2 + Alembic
 - BD: PostgreSQL en Railway
-- Web: Angular + PrimeNG (back office: admin, encargado, cajero)
-- Móvil: Flutter + Dart, Material 3 (cliente)
+- Web: Angular + PrimeNG (back office: admin, encargado, cajero; más una
+  tienda pública para clientes: catálogo, registro/login, carrito y
+  checkout — sin probador AR)
+- Móvil: Flutter + Dart, Material 3 (cliente: catálogo, favoritos,
+  carrito/checkout y el probador AR, exclusivo de esta app)
 - Imágenes: Cloudinary
 - IA: Groq (búsqueda por voz y recomendador)
 - Probador: google_mlkit_pose_detection (modo espejo) + Vertex AI (generativo)
@@ -54,9 +57,17 @@ Las tablas las crea Alembic a partir de los modelos.
 `docs/plan_desarrollo_fashionstore.md`
 
 ## Tokens de diseño
-Fondo #FFFFFF / #F7F7F5 · Texto #1A1A1A / #6B6B6B · Acento #1F2937
-Éxito #16A34A · Error #DC2626 · Borde #E5E5E5 · Radio 8px
-Espaciado en múltiplos de 4px.
+Paleta terracota oscurecida (tienda de hombre: menos crema/pastel, base más
+piedra/carbón, acento tipo cuero curtido en vez de coral). Fondo #EAE4DA
+(contenido) / #FFFFFF (superficie/cards) · Texto #1C1713 / tenue #6E6156 ·
+Acento #9A3E1F (hover #732E16, suave #E3D2C1) ·
+Sidebar #241C18 (texto #C9BCB2, activo rgba(154,62,31,.28) / #F0DDCE) ·
+Éxito #16A34A (suave #E8F6EE) · Advertencia #B45309 (suave #FDF0DD) ·
+Error #DC2626 · Borde #DBD0C1 · Muted #C7BCAC.
+Radio: 6px (inputs/filas/densos) · 10px (cards/stat tiles) · 18px (diálogos/hero).
+Tipografía: Fraunces (serif, 500/600/700, itálica para marca y saludos) +
+Public Sans (400-700, UI y datos). Números alineados en columna usan
+tabular-nums. Espaciado en múltiplos de 4px.
 El back office es denso (tablas compactas). El cliente móvil es amplio,
 con la fotografía como protagonista.
 

@@ -16,9 +16,9 @@ h3 {
 .atajos {
   font-size: 12px;
   color: var(--fs-texto-tenue);
-  background: var(--fs-fondo-alterno);
+  background: var(--fs-fondo);
   border: 1px solid var(--fs-borde);
-  border-radius: var(--fs-radio);
+  border-radius: var(--fs-radio-sm);
   padding: var(--fs-espacio-2) var(--fs-espacio-3);
   margin-bottom: var(--fs-espacio-4);
 }
@@ -31,9 +31,9 @@ h3 {
 }
 
 .bloque {
-  background: var(--fs-fondo);
+  background: var(--fs-superficie);
   border: 1px solid var(--fs-borde);
-  border-radius: var(--fs-radio);
+  border-radius: var(--fs-radio-md);
   padding: var(--fs-espacio-4);
   margin-bottom: var(--fs-espacio-4);
 
@@ -50,7 +50,7 @@ h3 {
     box-sizing: border-box;
     padding: var(--fs-espacio-2) var(--fs-espacio-3);
     border: 1px solid var(--fs-borde);
-    border-radius: var(--fs-radio);
+    border-radius: var(--fs-radio-sm);
     font-size: 14px;
   }
 }
@@ -60,7 +60,7 @@ h3 {
   margin: var(--fs-espacio-1) 0 0;
   padding: 0;
   border: 1px solid var(--fs-borde);
-  border-radius: var(--fs-radio);
+  border-radius: var(--fs-radio-sm);
   overflow: hidden;
 
   li {
@@ -76,7 +76,7 @@ h3 {
     }
 
     &.resaltado {
-      background: var(--fs-fondo-alterno);
+      background: var(--fs-fondo);
       font-weight: 600;
     }
   }
@@ -113,7 +113,7 @@ h3 {
   li {
     padding: var(--fs-espacio-2);
     border: 1px solid var(--fs-borde);
-    border-radius: var(--fs-radio);
+    border-radius: var(--fs-radio-sm);
     font-size: 13px;
   }
 }

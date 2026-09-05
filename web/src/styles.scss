@@ -1,17 +1,35 @@
 @import 'primeicons/primeicons.css';
 
-// Tokens de diseño de CLAUDE.md, como variables CSS. El back office es
-// denso: tablas compactas, poco espaciado.
+// Tokens de diseño de CLAUDE.md (paleta terracota), como variables CSS.
+// El back office es denso: tablas compactas, poco espaciado.
 :root {
-  --fs-fondo: #ffffff;
-  --fs-fondo-alterno: #f7f7f5;
-  --fs-texto: #1a1a1a;
-  --fs-texto-tenue: #6b6b6b;
-  --fs-acento: #1f2937;
+  --fs-fondo: #eae4da;
+  --fs-superficie: #ffffff;
+  --fs-texto: #1c1713;
+  --fs-texto-tenue: #6e6156;
+  --fs-acento: #9a3e1f;
+  --fs-acento-hover: #732e16;
+  --fs-acento-suave: #e3d2c1;
   --fs-exito: #16a34a;
+  --fs-exito-suave: #e8f6ee;
+  --fs-advertencia: #b45309;
+  --fs-advertencia-suave: #fdf0dd;
   --fs-error: #dc2626;
-  --fs-borde: #e5e5e5;
-  --fs-radio: 8px;
+  --fs-borde: #dbd0c1;
+  --fs-muted: #c7bcac;
+
+  --fs-radio-sm: 6px;
+  --fs-radio-md: 10px;
+  --fs-radio-lg: 18px;
+
+  --fs-fuente-display: 'Fraunces', serif;
+  --fs-fuente-ui:
+    'Public Sans',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
 
   --fs-espacio-1: 4px;
   --fs-espacio-2: 8px;
@@ -25,15 +43,58 @@ html,
 body {
   height: 100%;
   margin: 0;
-  background: var(--fs-fondo-alterno);
+  background: var(--fs-fondo);
   color: var(--fs-texto);
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: var(--fs-fuente-ui);
   font-size: 14px;
+}
+
+// Escala tipográfica: Fraunces para H1/H2 (marca, títulos de sección),
+// Public Sans para el resto. La densidad de las tablas no cambia acá.
+h1 {
+  font-family: var(--fs-fuente-display);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1.15;
+  margin: 0 0 var(--fs-espacio-2);
+}
+
+h2 {
+  font-family: var(--fs-fuente-display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0 0 var(--fs-espacio-2);
+}
+
+h3 {
+  font-family: var(--fs-fuente-ui);
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0 0 var(--fs-espacio-1);
+}
+
+.fs-etiqueta {
+  font-size: 12px;
+  color: var(--fs-texto-tenue);
+}
+
+.fs-caption {
+  font-size: 11px;
+  color: var(--fs-texto-tenue);
+}
+
+// Columnas de números alineados (precio, stock, cantidad).
+.fs-num {
+  font-variant-numeric: tabular-nums;
+}
+
+// Tarjeta base: no había elevación de ningún tipo antes de este rediseño.
+.fs-card {
+  background: var(--fs-superficie);
+  border: 1px solid var(--fs-borde);
+  border-radius: var(--fs-radio-md);
+  box-shadow: 0 1px 2px rgba(28, 23, 19, 0.06);
 }
 
 // Back office denso: PrimeNG trae bastante padding por defecto, se recorta
@@ -72,6 +133,163 @@ body {
     align-items: center;
     gap: var(--fs-espacio-2);
     flex-direction: row;
+  }
+}
+
+// Pantallas de autenticación (login, recuperar/restablecer contraseña):
+// comparten el mismo layout de tarjeta centrada, así que las clases viven
+// acá en vez de repetirse en cada .scss de componente.
+.auth-pantalla {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 0%, var(--fs-acento-suave) 0%, transparent 55%),
+    var(--fs-fondo);
+  padding: var(--fs-espacio-4);
+}
+
+.auth-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+  width: 360px;
+  max-width: 100%;
+  padding: var(--fs-espacio-8);
+  background: var(--fs-superficie);
+  border: 1px solid var(--fs-borde);
+  border-top: 3px solid var(--fs-acento);
+  border-radius: var(--fs-radio-lg);
+  box-shadow: 0 12px 32px rgba(28, 23, 19, 0.1);
+
+  label {
+    font-size: 12px;
+    color: var(--fs-texto-tenue);
+    margin-top: var(--fs-espacio-2);
+  }
+
+  input[pInputText] {
+    width: 100%;
+    padding: var(--fs-espacio-2) var(--fs-espacio-3);
+    border: 1px solid var(--fs-borde);
+    border-radius: var(--fs-radio-sm);
+    font-family: var(--fs-fuente-ui);
+    font-size: 14px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--fs-acento);
+      box-shadow: 0 0 0 3px var(--fs-acento-suave);
+    }
+  }
+}
+
+.auth-marca {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fs-acento);
+}
+
+.auth-titulo {
+  font-family: var(--fs-fuente-display);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.15;
+  margin: var(--fs-espacio-1) 0 0;
+  text-wrap: balance;
+}
+
+.auth-subtitulo {
+  margin: 0 0 var(--fs-espacio-4);
+  color: var(--fs-texto-tenue);
+  font-size: 13px;
+}
+
+.auth-enlace {
+  align-self: flex-end;
+  margin-top: var(--fs-espacio-1);
+  font-size: 12px;
+  color: var(--fs-acento);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--fs-acento-hover);
+    text-decoration: underline;
+  }
+}
+
+.auth-enlace--bloque {
+  align-self: stretch;
+  text-align: center;
+  padding: var(--fs-espacio-2) var(--fs-espacio-3);
+  border: 1px solid var(--fs-acento);
+  border-radius: var(--fs-radio-sm);
+}
+
+.auth-error {
+  color: var(--fs-error);
+  font-size: 13px;
+  margin: 0;
+}
+
+.auth-exito {
+  color: var(--fs-exito);
+  background: var(--fs-exito-suave);
+  border-radius: var(--fs-radio-sm);
+  padding: var(--fs-espacio-2) var(--fs-espacio-3);
+  font-size: 13px;
+  margin: 0;
+}
+
+.auth-tarjeta ::ng-deep .p-password,
+.auth-tarjeta ::ng-deep .p-password input {
+  width: 100%;
+}
+
+.auth-tarjeta ::ng-deep .p-password input:focus {
+  border-color: var(--fs-acento);
+  box-shadow: 0 0 0 3px var(--fs-acento-suave);
+}
+
+.auth-tarjeta ::ng-deep .p-button {
+  margin-top: var(--fs-espacio-2);
+  background: var(--fs-acento);
+  border-color: var(--fs-acento);
+
+  &:hover {
+    background: var(--fs-acento-hover);
+    border-color: var(--fs-acento-hover);
+  }
+}
+
+// Selector de una sola opción en pills (talla/color, tipo de entrega,
+// método de pago, categorías del catálogo público) -- un solo lugar para
+// no repetir el mismo CSS en cada pantalla de la tienda.
+.fs-pill-fila {
+  display: flex;
+  gap: var(--fs-espacio-2);
+  flex-wrap: wrap;
+}
+
+.fs-pill {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--fs-espacio-2) var(--fs-espacio-4);
+  border-radius: 999px;
+  border: 1px solid var(--fs-borde);
+  background: var(--fs-superficie);
+  color: var(--fs-texto-tenue);
+  cursor: pointer;
+
+  &.activa {
+    background: var(--fs-texto);
+    border-color: var(--fs-texto);
+    color: var(--fs-fondo);
   }
 }
 

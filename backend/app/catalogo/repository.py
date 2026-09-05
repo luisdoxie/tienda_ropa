@@ -188,6 +188,15 @@ class ProductoRepository(CRUDBase[Producto, ProductoCrear, ProductoActualizar]):
         consulta = consulta.order_by(Producto.id).offset(paginacion.offset).limit(paginacion.tamanio)
         return list(db.scalars(consulta).all())
 
+    def listar_por_ids_publico(self, db: Session, producto_ids: list[int]) -> list[Producto]:
+        """Para GET /catalogo/variantes/detalle: resuelve foto de producto
+        para un lote de producto_id (lo usa 'stock bajo' del dashboard,
+        que ya conoce el producto_id vía inventario/alertas)."""
+        consulta = (
+            select(Producto).where(Producto.id.in_(set(producto_ids))).options(selectinload(Producto.imagenes))
+        )
+        return list(db.scalars(consulta).all())
+
     def obtener_publico_detalle(self, db: Session, producto_id: int) -> Producto:
         producto = db.scalar(
             select(Producto)
@@ -225,6 +234,25 @@ class VarianteRepository(CRUDBase[ProductoVariante, VarianteActualizar, Variante
 
     def obtener_por_sku(self, db: Session, sku: str) -> ProductoVariante | None:
         return db.scalar(select(ProductoVariante).where(ProductoVariante.sku == sku))
+
+    def listar_para_detalle_publico(
+        self, db: Session, variante_ids: list[int]
+    ) -> list[tuple[ProductoVariante, Producto, Talla, Color]]:
+        """Para GET /catalogo/variantes/detalle: resuelve producto+imagen
+        (+talla/color, para el carrito de la app) para un lote de
+        variantes, lo usa 'se vendió hoy' del dashboard (una Venta solo
+        trae variante_id, no nombre ni foto) y el carrito de compra de
+        Flutter (mismo problema: CarritoDetalleRespuesta solo trae
+        variante_id)."""
+        consulta = (
+            select(ProductoVariante, Producto, Talla, Color)
+            .join(Producto, Producto.id == ProductoVariante.producto_id)
+            .join(Talla, Talla.id == ProductoVariante.talla_id)
+            .join(Color, Color.id == ProductoVariante.color_id)
+            .where(ProductoVariante.id.in_(set(variante_ids)))
+            .options(selectinload(Producto.imagenes))
+        )
+        return [tuple(fila) for fila in db.execute(consulta).all()]
 
     def obtener_por_codigo_barras(self, db: Session, codigo_barras: str) -> ProductoVariante | None:
         return db.scalar(select(ProductoVariante).where(ProductoVariante.codigo_barras == codigo_barras))

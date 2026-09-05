@@ -393,6 +393,23 @@ class VarianteCatalogoRespuesta(BaseModel):
     cantidad_disponible: int | None = None
 
 
+class ProductoImagenLookupItem(BaseModel):
+    """Fila de GET /catalogo/variantes/detalle: resuelve nombre+foto de
+    producto en lote, a partir de variante_id o de producto_id. La usa el
+    dashboard del back office para mostrar la prenda real en 'se vendió
+    hoy' (por variante_id, ya que una Venta solo trae eso) y en 'stock
+    bajo' (por producto_id, ya conocido vía inventario/alertas); también
+    la usa el carrito de compra de la app Flutter (por variante_id, con
+    talla_codigo/color_nombre para mostrar la línea completa)."""
+
+    variante_id: int | None = None
+    producto_id: int
+    producto_nombre: str
+    imagen_principal: str | None = None
+    talla_codigo: str | None = None
+    color_nombre: str | None = None
+
+
 class CatalogoDetalleRespuesta(BaseModel):
     id: int
     codigo: str

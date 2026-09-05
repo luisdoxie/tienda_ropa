@@ -134,6 +134,7 @@ class ProductoVariante(Base):
 
 class ProductoImagen(Base):
     __tablename__ = "producto_imagen"
+    __table_args__ = (Index("ix_producto_imagen_producto", "producto_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("producto.id", ondelete="CASCADE"), nullable=False)

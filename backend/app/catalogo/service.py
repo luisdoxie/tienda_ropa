@@ -43,6 +43,7 @@ from app.catalogo.schemas import (
     ImagenRespuesta,
     ProductoActualizar,
     ProductoCrear,
+    ProductoImagenLookupItem,
     TablaMedidaActualizar,
     TablaMedidaCrear,
     TemporadaActualizar,
@@ -386,6 +387,38 @@ def buscar_catalogo(
 ) -> list[CatalogoItemRespuesta]:
     productos = producto_repo.buscar_publico(db, paginacion, filtros)
     return [_a_item_catalogo(p) for p in productos]
+
+
+def resolver_imagen_lookup(
+    db: Session, variante_ids: list[int] | None, producto_ids: list[int] | None
+) -> list[ProductoImagenLookupItem]:
+    """Resuelve nombre+foto en lote para el dashboard del back office (ver
+    ProductoImagenLookupItem). No filtra por `activo`: quien llama ya
+    conoce estos ids por una venta o una alerta de stock real, así que
+    interesa mostrar la prenda aunque haya quedado inactiva después."""
+    resultados: list[ProductoImagenLookupItem] = []
+    if variante_ids:
+        for variante, producto, talla, color in variante_repo.listar_para_detalle_publico(db, variante_ids):
+            resultados.append(
+                ProductoImagenLookupItem(
+                    variante_id=variante.id,
+                    producto_id=producto.id,
+                    producto_nombre=producto.nombre,
+                    imagen_principal=_imagen_principal_url(producto),
+                    talla_codigo=talla.codigo,
+                    color_nombre=color.nombre,
+                )
+            )
+    if producto_ids:
+        for producto in producto_repo.listar_por_ids_publico(db, producto_ids):
+            resultados.append(
+                ProductoImagenLookupItem(
+                    producto_id=producto.id,
+                    producto_nombre=producto.nombre,
+                    imagen_principal=_imagen_principal_url(producto),
+                )
+            )
+    return resultados
 
 
 def _disponibilidad_variante(variante_id: int, sucursal_id: int | None) -> int | None:

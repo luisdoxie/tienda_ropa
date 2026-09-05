@@ -1,10 +1,11 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import ParametrosPaginacion, parametros_paginacion
+from app.core.rate_limit import limiter
 from app.core.security import get_current_user, require_permission
 from app.catalogo import service
 from app.catalogo.repository import (
@@ -41,6 +42,7 @@ from app.catalogo.schemas import (
     MaterialRespuesta,
     ProductoActualizar,
     ProductoCrear,
+    ProductoImagenLookupItem,
     ProductoRespuesta,
     TablaMedidaActualizar,
     TablaMedidaCrear,
@@ -452,14 +454,19 @@ catalogo_router = APIRouter(prefix="/api/v1/catalogo", tags=["catalogo"])
 
 
 @catalogo_router.get("", response_model=list[CatalogoItemRespuesta])
+@limiter.limit("60/minute")
 def listar_catalogo(
-    db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(paginacion_catalogo)
+    request: Request,
+    db: Session = Depends(get_db),
+    paginacion: ParametrosPaginacion = Depends(paginacion_catalogo),
 ) -> list[CatalogoItemRespuesta]:
     return service.listar_catalogo(db, paginacion)
 
 
 @catalogo_router.get("/buscar", response_model=list[CatalogoItemRespuesta])
+@limiter.limit("30/minute")
 def buscar_catalogo(
+    request: Request,
     db: Session = Depends(get_db),
     paginacion: ParametrosPaginacion = Depends(paginacion_catalogo),
     q: str | None = Query(default=None, description="Texto libre sobre nombre y descripción"),
@@ -510,6 +517,17 @@ def buscar_variantes_para_venta(
         )
         for variante, producto, talla, color in filas
     ]
+
+
+@catalogo_router.get("/variantes/detalle", response_model=list[ProductoImagenLookupItem])
+def obtener_detalle_para_dashboard(
+    variante_ids: str | None = Query(default=None, description="IDs de variante separados por coma"),
+    producto_ids: str | None = Query(default=None, description="IDs de producto separados por coma"),
+    db: Session = Depends(get_db),
+) -> list[ProductoImagenLookupItem]:
+    v_ids = [int(x) for x in variante_ids.split(",") if x] if variante_ids else None
+    p_ids = [int(x) for x in producto_ids.split(",") if x] if producto_ids else None
+    return service.resolver_imagen_lookup(db, v_ids, p_ids)
 
 
 @catalogo_router.get("/{producto_id}", response_model=CatalogoDetalleRespuesta)

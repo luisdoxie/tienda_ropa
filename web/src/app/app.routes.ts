@@ -148,6 +148,12 @@ export const routes: Routes = [
           import('./features/sucursales/sucursales.component').then((m) => m.SucursalesComponent),
       },
       {
+        path: 'empleados',
+        canActivate: [permisoGuard('organizacion.gestionar')],
+        loadComponent: () =>
+          import('./features/empleados/empleados.component').then((m) => m.EmpleadosComponent),
+      },
+      {
         path: 'probador',
         canActivate: [permisoGuard('probador.gestionar')],
         loadComponent: () =>

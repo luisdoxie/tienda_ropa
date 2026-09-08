@@ -1,0 +1,44 @@
+<h1>Empleados</h1>
+
+<app-tabla-generica
+  endpoint="/empleados"
+  [columnas]="columnas"
+  (crear)="abrirCrear()"
+  (editar)="abrirEditar($event)"
+/>
+
+<p-dialog header="Empleado" [(visible)]="dialogoVisible" [modal]="true" [style]="{ width: '400px' }">
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <label for="usuario">Usuario</label>
+    <p-select
+      inputId="usuario"
+      formControlName="usuario_id"
+      [options]="opcionesUsuario()"
+      optionLabel="etiqueta"
+      optionValue="id"
+      placeholder="Seleccioná un usuario (rol cajero o encargado)"
+    />
+
+    <label for="sucursal">Sucursal</label>
+    <p-select
+      inputId="sucursal"
+      formControlName="sucursal_id"
+      [options]="sucursales()"
+      optionLabel="nombre"
+      optionValue="id"
+      placeholder="Sin sucursal asignada"
+      [showClear]="true"
+    />
+
+    <label for="cargo">Cargo</label>
+    <input id="cargo" pInputText formControlName="cargo" />
+
+    <label for="ci">CI</label>
+    <input id="ci" pInputText formControlName="ci" />
+
+    <label for="fecha_ingreso">Fecha de ingreso</label>
+    <input id="fecha_ingreso" type="date" pInputText formControlName="fecha_ingreso" />
+
+    <p-button type="submit" label="Guardar" styleClass="w-full" />
+  </form>
+</p-dialog>

@@ -18,6 +18,7 @@ export interface ProveedorCrear {
   telefono?: string | null;
   email?: string | null;
   direccion?: string | null;
+  usuario_id?: number | null;
 }
 
 export type ProveedorActualizar = Partial<ProveedorCrear>;

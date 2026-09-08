@@ -21,6 +21,17 @@
     <label for="telefono">Teléfono</label>
     <input id="telefono" pInputText formControlName="telefono" />
 
+    <label for="roles">Roles</label>
+    <p-multiselect
+      inputId="roles"
+      formControlName="roles"
+      [options]="roles()"
+      optionLabel="nombre"
+      optionValue="nombre"
+      display="chip"
+      placeholder="Sin roles asignados"
+    />
+
     @if (!editando()) {
       <label for="password">Contraseña</label>
       <p-password inputId="password" formControlName="password" [feedback]="false" [toggleMask]="true" />

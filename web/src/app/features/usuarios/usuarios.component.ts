@@ -1,19 +1,21 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, ViewChild, inject, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { PasswordModule } from 'primeng/password';
 import { environment } from '../../../environments/environment';
-import { Usuario } from '../../core/models/seguridad.models';
+import { Rol, Usuario } from '../../core/models/seguridad.models';
 import { ColumnaTabla, TablaGenericaComponent } from '../../shared/tabla-generica/tabla-generica.component';
 
 const COLUMNAS: ColumnaTabla<Usuario>[] = [
   { campo: 'nombre', encabezado: 'Nombre' },
   { campo: 'apellido', encabezado: 'Apellido' },
   { campo: 'email', encabezado: 'Email' },
+  { campo: 'roles', encabezado: 'Roles' },
   { campo: 'activo', encabezado: 'Activo', tipo: 'booleano' },
 ];
 
@@ -27,14 +29,16 @@ const COLUMNAS: ColumnaTabla<Usuario>[] = [
     InputTextModule,
     PasswordModule,
     CheckboxModule,
+    MultiSelectModule,
     TablaGenericaComponent,
   ],
   templateUrl: './usuarios.component.html',
 })
-export class UsuariosComponent {
+export class UsuariosComponent implements OnInit {
   protected readonly columnas = COLUMNAS;
   protected readonly dialogoVisible = signal(false);
   protected readonly editando = signal<Usuario | null>(null);
+  protected readonly roles = signal<Rol[]>([]);
 
   @ViewChild(TablaGenericaComponent) private tabla!: TablaGenericaComponent<Usuario>;
 
@@ -47,12 +51,27 @@ export class UsuariosComponent {
     email: ['', [Validators.required, Validators.email]],
     telefono: [''],
     password: [''],
+    roles: [[] as string[]],
     activo: [true],
   });
 
+  ngOnInit(): void {
+    this.http
+      .get<Rol[]>(`${environment.apiUrl}/roles?pagina=1&tamanio=100`)
+      .subscribe((roles) => this.roles.set(roles.filter((r) => r.activo)));
+  }
+
   abrirCrear(): void {
     this.editando.set(null);
-    this.formulario.reset({ nombre: '', apellido: '', email: '', telefono: '', password: '', activo: true });
+    this.formulario.reset({
+      nombre: '',
+      apellido: '',
+      email: '',
+      telefono: '',
+      password: '',
+      roles: [],
+      activo: true,
+    });
     this.formulario.controls.email.enable();
     this.formulario.controls.password.setValidators([Validators.required, Validators.minLength(8)]);
     this.formulario.controls.password.updateValueAndValidity();
@@ -67,6 +86,7 @@ export class UsuariosComponent {
       email: usuario.email,
       telefono: usuario.telefono ?? '',
       password: '',
+      roles: usuario.roles,
       activo: usuario.activo,
     });
     this.formulario.controls.email.disable(); // el email no se edita, es la identidad de login
@@ -82,14 +102,15 @@ export class UsuariosComponent {
     }
 
     const usuario = this.editando();
+    const nombresRol = this.formulario.controls.roles.value;
     const peticion = usuario
-      ? this.http.put(`${environment.apiUrl}/usuarios/${usuario.id}`, {
+      ? this.http.put<Usuario>(`${environment.apiUrl}/usuarios/${usuario.id}`, {
           nombre: this.formulario.controls.nombre.value,
           apellido: this.formulario.controls.apellido.value,
           telefono: this.formulario.controls.telefono.value,
           activo: this.formulario.controls.activo.value,
         })
-      : this.http.post(`${environment.apiUrl}/usuarios`, {
+      : this.http.post<Usuario>(`${environment.apiUrl}/usuarios`, {
           nombre: this.formulario.controls.nombre.value,
           apellido: this.formulario.controls.apellido.value,
           email: this.formulario.controls.email.value,
@@ -97,9 +118,11 @@ export class UsuariosComponent {
           password: this.formulario.controls.password.value,
         });
 
-    peticion.subscribe(() => {
-      this.dialogoVisible.set(false);
-      this.tabla.recargar();
+    peticion.subscribe((guardado) => {
+      this.http.put(`${environment.apiUrl}/usuarios/${guardado.id}/roles`, { nombres_rol: nombresRol }).subscribe(() => {
+        this.dialogoVisible.set(false);
+        this.tabla.recargar();
+      });
     });
   }
 }

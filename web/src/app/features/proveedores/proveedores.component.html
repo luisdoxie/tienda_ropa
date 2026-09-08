@@ -22,6 +22,17 @@
     <label for="direccion">Dirección</label>
     <input id="direccion" pInputText formControlName="direccion" />
 
+    <label for="usuario">Usuario vinculado</label>
+    <p-select
+      inputId="usuario"
+      formControlName="usuario_id"
+      [options]="opcionesUsuario()"
+      optionLabel="etiqueta"
+      optionValue="id"
+      placeholder="Sin usuario asociado"
+      [showClear]="true"
+    />
+
     <p-button type="submit" label="Guardar" styleClass="w-full" />
   </form>
 </p-dialog>

@@ -41,6 +41,42 @@
   }
 }
 
+.layout__enlace--sub {
+  padding-left: calc(var(--fs-espacio-4) + 20px);
+}
+
+.layout__grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-2);
+  width: 100%;
+  padding: var(--fs-espacio-3) var(--fs-espacio-4);
+  color: #c9bcb2;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  span {
+    flex: 1;
+    text-align: left;
+  }
+}
+
+.layout__grupo-chevron {
+  font-size: 11px;
+  transition: transform 0.15s ease;
+
+  &.girado {
+    transform: rotate(180deg);
+  }
+}
+
 .layout__contenido {
   flex: 1;
   display: flex;

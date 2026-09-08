@@ -56,3 +56,13 @@ export interface Empleado {
   fecha_ingreso: string | null;
   activo: boolean;
 }
+
+export interface EmpleadoCrear {
+  usuario_id: number;
+  sucursal_id?: number | null;
+  ci?: string | null;
+  cargo?: string | null;
+  fecha_ingreso?: string | null;
+}
+
+export type EmpleadoActualizar = Partial<Omit<EmpleadoCrear, 'usuario_id'>>;

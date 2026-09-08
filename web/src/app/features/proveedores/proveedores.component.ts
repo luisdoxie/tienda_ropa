@@ -1,11 +1,13 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, ViewChild, inject, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
+import { SelectModule } from 'primeng/select';
 import { environment } from '../../../environments/environment';
 import { Proveedor, ProveedorCrear } from '../../core/models/abastecimiento.models';
+import { Usuario } from '../../core/models/seguridad.models';
 import { ColumnaTabla, TablaGenericaComponent } from '../../shared/tabla-generica/tabla-generica.component';
 
 const COLUMNAS: ColumnaTabla<Proveedor>[] = [
@@ -19,13 +21,20 @@ const COLUMNAS: ColumnaTabla<Proveedor>[] = [
 @Component({
   selector: 'app-proveedores',
   standalone: true,
-  imports: [ReactiveFormsModule, ButtonModule, DialogModule, InputTextModule, TablaGenericaComponent],
+  imports: [ReactiveFormsModule, ButtonModule, DialogModule, InputTextModule, SelectModule, TablaGenericaComponent],
   templateUrl: './proveedores.component.html',
 })
-export class ProveedoresComponent {
+export class ProveedoresComponent implements OnInit {
   protected readonly columnas = COLUMNAS;
   protected readonly dialogoVisible = signal(false);
   protected readonly editando = signal<Proveedor | null>(null);
+
+  private readonly usuarios = signal<Usuario[]>([]);
+  protected readonly opcionesUsuario = computed(() =>
+    this.usuarios()
+      .filter((u) => u.roles.includes('proveedor'))
+      .map((u) => ({ id: u.id, etiqueta: `${u.nombre} ${u.apellido} (${u.email})` })),
+  );
 
   @ViewChild(TablaGenericaComponent) private tabla!: TablaGenericaComponent<Proveedor>;
 
@@ -39,11 +48,26 @@ export class ProveedoresComponent {
     telefono: [''],
     email: ['', Validators.email],
     direccion: [''],
+    usuario_id: [null as number | null],
   });
+
+  ngOnInit(): void {
+    this.http
+      .get<Usuario[]>(`${environment.apiUrl}/usuarios?pagina=1&tamanio=100`)
+      .subscribe((usuarios) => this.usuarios.set(usuarios));
+  }
 
   abrirCrear(): void {
     this.editando.set(null);
-    this.formulario.reset({ nombre: '', nit: '', contacto: '', telefono: '', email: '', direccion: '' });
+    this.formulario.reset({
+      nombre: '',
+      nit: '',
+      contacto: '',
+      telefono: '',
+      email: '',
+      direccion: '',
+      usuario_id: null,
+    });
     this.dialogoVisible.set(true);
   }
 
@@ -56,6 +80,7 @@ export class ProveedoresComponent {
       telefono: proveedor.telefono ?? '',
       email: proveedor.email ?? '',
       direccion: proveedor.direccion ?? '',
+      usuario_id: proveedor.usuario_id,
     });
     this.dialogoVisible.set(true);
   }
@@ -75,6 +100,7 @@ export class ProveedoresComponent {
       telefono: valores.telefono || null,
       email: valores.email || null,
       direccion: valores.direccion || null,
+      usuario_id: valores.usuario_id,
     };
 
     const peticion = proveedor

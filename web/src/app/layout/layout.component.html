@@ -2,7 +2,30 @@
   <aside class="layout__menu">
     <div class="layout__marca">FashionStore</div>
     <nav>
-      @for (item of itemsMenu(); track item.ruta) {
+      @for (item of itemsInicio(); track item.ruta) {
+        <a [routerLink]="item.ruta" routerLinkActive="activo" class="layout__enlace">
+          <i [class]="item.icono"></i>
+          <span>{{ item.etiqueta }}</span>
+        </a>
+      }
+
+      @for (grupo of gruposMenu(); track grupo.id) {
+        <button type="button" class="layout__grupo-titulo" (click)="toggleGrupo(grupo.id)">
+          <i [class]="grupo.icono"></i>
+          <span>{{ grupo.etiqueta }}</span>
+          <i class="pi pi-chevron-down layout__grupo-chevron" [class.girado]="estaAbierto(grupo.id)"></i>
+        </button>
+        @if (estaAbierto(grupo.id)) {
+          @for (item of grupo.items; track item.ruta) {
+            <a [routerLink]="item.ruta" routerLinkActive="activo" class="layout__enlace layout__enlace--sub">
+              <i [class]="item.icono"></i>
+              <span>{{ item.etiqueta }}</span>
+            </a>
+          }
+        }
+      }
+
+      @for (item of itemsFin(); track item.ruta) {
         <a [routerLink]="item.ruta" routerLinkActive="activo" class="layout__enlace">
           <i [class]="item.icono"></i>
           <span>{{ item.etiqueta }}</span>

@@ -73,15 +73,6 @@ export class DashboardComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    const roles = this.authService.roles();
-    const tieneSucursal = roles.includes('cajero') || roles.includes('encargado_sucursal');
-    if (!tieneSucursal) {
-      // administrador: acceso total, sin sucursal asignada -- no tiene
-      // registro de empleado, así que no tiene sentido pedir /empleados/yo.
-      this.cargando.set(false);
-      return;
-    }
-
     this.http.get<Empleado>(`${environment.apiUrl}/empleados/yo`).subscribe({
       next: (empleado) => {
         this.cargando.set(false);

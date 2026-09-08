@@ -3,6 +3,11 @@ import { inject } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { catchError, throwError } from 'rxjs';
 
+// Rutas que ya manejan sus propios errores en la UI (p. ej. dashboard y
+// caja muestran un aviso propio cuando el usuario no tiene registro de
+// empleado) -- el toast global sería redundante.
+const RUTAS_SIN_TOAST_ERROR = ['/empleados/yo'];
+
 function mensajeDe(error: HttpErrorResponse): string {
   const detalle = error.error?.detail;
   if (typeof detalle === 'string') {
@@ -28,7 +33,8 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((error: unknown) => {
-      if (error instanceof HttpErrorResponse && error.status !== 401) {
+      const esRutaSinToast = RUTAS_SIN_TOAST_ERROR.some((ruta) => req.url.includes(ruta));
+      if (error instanceof HttpErrorResponse && error.status !== 401 && !esRutaSinToast) {
         messageService.add({
           severity: 'error',
           summary: `Error ${error.status || ''}`.trim(),

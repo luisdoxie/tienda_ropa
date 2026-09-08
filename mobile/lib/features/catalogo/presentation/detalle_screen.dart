@@ -9,6 +9,8 @@ import '../../favoritos/state/favoritos_controller.dart';
 import '../../reservas/models/item_reserva_temporal.dart';
 import '../../reservas/state/carrito_reserva_controller.dart';
 import '../../reservas/state/reservas_providers.dart';
+import '../../recomendador/presentation/carrusel_recomendaciones.dart';
+import '../../recomendador/state/recomendador_providers.dart';
 import '../../tracking/models/evento.dart';
 import '../../tracking/state/tracking_service.dart';
 import '../models/catalogo_detalle.dart';
@@ -201,6 +203,10 @@ class _Contenido extends ConsumerWidget {
               _DisponibilidadPorSucursal(varianteId: variante?.id),
             ],
           ),
+        ),
+        CarruselRecomendaciones(
+          provider: recomendacionesDetalleProvider(detalle.id),
+          titulo: 'También te puede interesar',
         ),
       ],
     );
@@ -403,6 +409,7 @@ class _BotonAgregarCarritoState extends ConsumerState<_BotonAgregarCarrito> {
     setState(() => _agregando = true);
     try {
       await ref.read(carritoControllerProvider.notifier).agregar(varianteId: widget.varianteId, cantidad: 1);
+      ref.read(trackingServiceProvider).track(tipo: TipoEvento.carrito, varianteId: widget.varianteId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

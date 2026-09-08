@@ -1,0 +1,117 @@
+h1 {
+  margin-bottom: var(--fs-espacio-4);
+}
+
+h3 {
+  margin: var(--fs-espacio-4) 0 var(--fs-espacio-2);
+  font-size: 14px;
+}
+
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-espacio-2);
+  margin: var(--fs-espacio-4) 0;
+  flex-wrap: wrap;
+}
+
+.ayuda {
+  color: var(--fs-texto-tenue);
+  font-size: 12px;
+}
+
+.fila-alerta {
+  background: color-mix(in srgb, var(--fs-error) 8%, transparent);
+}
+
+.stat-fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--fs-espacio-3);
+  margin-bottom: var(--fs-espacio-6);
+}
+
+.stat-tarjeta {
+  padding: var(--fs-espacio-4);
+}
+
+.stat-etiqueta {
+  font-size: 12.5px;
+  color: var(--fs-texto-tenue);
+  margin-bottom: var(--fs-espacio-1);
+}
+
+.stat-valor {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.graficos-fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--fs-espacio-3);
+  margin-bottom: var(--fs-espacio-6);
+}
+
+.grafico-tarjeta {
+  padding: var(--fs-espacio-4);
+
+  h3 {
+    margin-top: 0;
+  }
+}
+
+.seccion-tarjeta {
+  padding: var(--fs-espacio-4);
+  margin-bottom: var(--fs-espacio-4);
+
+  h3 {
+    margin-top: 0;
+  }
+}
+
+.lista-simple {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fs-espacio-2);
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--fs-espacio-2) 0;
+    border-bottom: 1px solid var(--fs-borde);
+    font-size: 13px;
+  }
+}
+
+.pills-fila {
+  display: flex;
+  gap: var(--fs-espacio-2);
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fs-espacio-1);
+  font-size: 12px;
+  font-weight: 600;
+  padding: var(--fs-espacio-1) var(--fs-espacio-3);
+  border-radius: 999px;
+  background: var(--fs-superficie);
+  border: 1px solid var(--fs-borde);
+}
+
+.tabla-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--fs-espacio-4) 0 var(--fs-espacio-2);
+
+  h3 {
+    margin: 0;
+  }
+}

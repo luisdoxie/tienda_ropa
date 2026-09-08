@@ -582,3 +582,46 @@ def resolver_filtros_por_nombre(
         genero=genero,
         precio_max=precio_max,
     )
+
+
+def resolver_categoria_por_nombre(db: Session, nombre: str | None) -> int | None:
+    """Para `inteligencia` (P6.3, reporte por voz): matchea el nombre de
+    categoría que devolvió Groq sin consultar `categoria` directamente.
+    Sin match, devuelve None -- no rompe el reporte."""
+    return _resolver_por_nombre(db, Categoria.id, Categoria.nombre, nombre)
+
+
+def listar_variantes_temporada_vigente(db: Session) -> set[int]:
+    """Para `inteligencia` (P6.2, capa de reglas): variantes activas cuyo
+    producto pertenece a una temporada vigente (`Temporada.activo`, mismo
+    criterio que `listar_valores_referencia`). Un producto sin temporada
+    asignada no cuenta como vigente."""
+    filas = db.scalars(
+        select(ProductoVariante.id)
+        .join(Producto, Producto.id == ProductoVariante.producto_id)
+        .join(Temporada, Temporada.id == Producto.temporada_id)
+        .where(ProductoVariante.activo.is_(True), Producto.activo.is_(True), Temporada.activo.is_(True))
+    )
+    return set(filas)
+
+
+def listar_variantes_de_producto(db: Session, producto_id: int) -> set[int]:
+    """Para `inteligencia` (P6.2): variantes de un producto, para excluirlo
+    de su propio carrusel de recomendaciones (detalle de prenda)."""
+    return set(db.scalars(select(ProductoVariante.id).where(ProductoVariante.producto_id == producto_id)))
+
+
+def listar_items_por_variantes(db: Session, variante_ids: list[int]) -> dict[int, CatalogoItemRespuesta]:
+    """Para `inteligencia` (P6.2): resuelve cada variante candidata a la
+    tarjeta de su producto (imagen, nombre, precio), sin consultar
+    producto_variante/producto directamente. Variantes de un mismo
+    producto resuelven al mismo `CatalogoItemRespuesta` (mismo `id`) --
+    el llamador decide si colapsarlas."""
+    if not variante_ids:
+        return {}
+    filas = db.execute(
+        select(ProductoVariante.id, Producto)
+        .join(Producto, Producto.id == ProductoVariante.producto_id)
+        .where(ProductoVariante.id.in_(variante_ids))
+    ).all()
+    return {variante_id: _a_item_catalogo(producto) for variante_id, producto in filas}

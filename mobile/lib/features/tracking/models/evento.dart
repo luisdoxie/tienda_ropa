@@ -1,9 +1,7 @@
-enum TipoEvento { vista, busqueda, favorito }
+enum TipoEvento { vista, busqueda, carrito, probador, favorito }
 
-/// Modelo del evento que va a POST /api/v1/ia/eventos (todavía no existe:
-/// llega en la etapa 6, paquete `inteligencia`, y alimenta el
-/// recomendador). Se define ahora para que el registro funcione desde el
-/// primer día, como pide el enunciado.
+/// Modelo del evento que va a POST /api/v1/ia/eventos (P6.2, paquete
+/// `inteligencia`), que alimenta al recomendador.
 class Evento {
   const Evento({required this.tipo, this.productoId, this.varianteId, this.texto, required this.creadoEn});
 

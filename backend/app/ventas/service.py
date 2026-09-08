@@ -30,23 +30,25 @@ import datetime as dt
 import secrets
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.catalogo import service as catalogo_service
 from app.catalogo.models import ProductoVariante
-from app.core.deps import ParametrosPaginacion
+from app.core.deps import ParametrosPaginacion, ParametrosPeriodo
 from app.core.exceptions import ConflictoError, DomainError, NoEncontradoError, PermisoDenegadoError
 from app.core.security import permisos_de_usuario
 from app.inventario import service as inventario_service
 from app.organizacion import service as organizacion_service
 from app.reservas import service as reservas_service
 from app.seguridad import service as seguridad_service
+from app.ventas import repository as ventas_repo
 from app.ventas.models import (
     Carrito,
     CarritoDetalle,
     Devolucion,
     DevolucionDetalle,
+    EstadoVenta,
     Promocion,
     PromocionAlcance,
     Venta,
@@ -389,6 +391,94 @@ def listar_mis_compras(db: Session, usuario_id: int) -> list[Venta]:
 def listar_ventas_sucursal(db: Session, sucursal_id: int) -> list[Venta]:
     organizacion_service.obtener_sucursal(db, sucursal_id)
     return venta_repo.listar_por_sucursal(db, sucursal_id)
+
+
+# ---- Punto de entrada para otros paquetes ------------------------------------
+
+
+def listar_variantes_compradas(db: Session, cliente_id: int) -> set[int]:
+    """Para `inteligencia` (P6.2, capa de reglas): variantes que un cliente
+    ya compró, para excluirlas del recomendador. Cuenta cualquier venta que
+    no haya sido anulada (pendiente_pago/pagada/entregada sí cuentan)."""
+    filas = db.scalars(
+        select(VentaDetalle.variante_id)
+        .join(Venta, Venta.id == VentaDetalle.venta_id)
+        .join(EstadoVenta, EstadoVenta.id == Venta.estado_id)
+        .where(Venta.cliente_id == cliente_id, EstadoVenta.codigo != "anulada")
+        .distinct()
+    )
+    return set(filas)
+
+
+def reporte_ventas_detalle(
+    db: Session,
+    periodo: ParametrosPeriodo,
+    sucursal_id: int | None = None,
+    categoria_id: int | None = None,
+    canal: str | None = None,
+) -> list[dict]:
+    """Para `reportes` (P6.3): filas crudas de vw_ventas_detalle."""
+    return ventas_repo.detalle(db, periodo.desde, periodo.hasta, sucursal_id, categoria_id, canal)
+
+
+def reporte_ventas_resumen(
+    db: Session,
+    periodo: ParametrosPeriodo,
+    sucursal_id: int | None = None,
+    categoria_id: int | None = None,
+    canal: str | None = None,
+) -> dict:
+    """Para `reportes` (P6.3): total vendido, transacciones y margen bruto
+    del período (el ticket promedio lo calcula quien llama, dividiendo)."""
+    return ventas_repo.resumen(db, periodo.desde, periodo.hasta, sucursal_id, categoria_id, canal)
+
+
+def reporte_ventas_top_productos(
+    db: Session,
+    periodo: ParametrosPeriodo,
+    sucursal_id: int | None = None,
+    categoria_id: int | None = None,
+    canal: str | None = None,
+    limite: int = 10,
+) -> list[dict]:
+    """Para `reportes` (P6.3): productos más vendidos del período."""
+    return ventas_repo.top_productos(db, periodo.desde, periodo.hasta, sucursal_id, categoria_id, canal, limite)
+
+
+def reporte_ventas_por_canal(
+    db: Session, periodo: ParametrosPeriodo, sucursal_id: int | None = None, categoria_id: int | None = None
+) -> list[dict]:
+    """Para `reportes` (P6.3): ventas agrupadas por canal (digital/presencial)."""
+    return ventas_repo.por_canal(db, periodo.desde, periodo.hasta, sucursal_id, categoria_id)
+
+
+def reporte_ventas_por_sucursal(
+    db: Session, periodo: ParametrosPeriodo, categoria_id: int | None = None, canal: str | None = None
+) -> list[dict]:
+    """Para `reportes` (P6.3): ventas agrupadas por sucursal."""
+    return ventas_repo.por_sucursal(db, periodo.desde, periodo.hasta, categoria_id, canal)
+
+
+def contar_ventas_con_reserva(db: Session, periodo: ParametrosPeriodo, sucursal_id: int | None = None) -> int:
+    """Para `reportes` (P6.3, tasa de conversión de reservas a ventas):
+    ventas del período que se originaron en una reserva."""
+    return ventas_repo.contar_ventas_con_reserva(db, periodo.desde, periodo.hasta, sucursal_id)
+
+
+def contar_ventas_por_variante(db: Session, variante_ids: list[int]) -> dict[int, int]:
+    """Para `inteligencia` (P6.2, fallback de popularidad para clientes
+    nuevos/anónimos sin historial): cantidad total vendida de cada
+    variante, contando solo ventas no anuladas."""
+    if not variante_ids:
+        return {}
+    filas = db.execute(
+        select(VentaDetalle.variante_id, func.sum(VentaDetalle.cantidad))
+        .join(Venta, Venta.id == VentaDetalle.venta_id)
+        .join(EstadoVenta, EstadoVenta.id == Venta.estado_id)
+        .where(VentaDetalle.variante_id.in_(variante_ids), EstadoVenta.codigo != "anulada")
+        .group_by(VentaDetalle.variante_id)
+    ).all()
+    return {variante_id: int(total) for variante_id, total in filas}
 
 
 # ---- Carrito --------------------------------------------------------------------

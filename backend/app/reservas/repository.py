@@ -1,6 +1,6 @@
 import datetime as dt
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import NoEncontradoError
@@ -69,3 +69,20 @@ class ReservaRepository:
         db.add(reserva)
         db.flush()
         return reserva
+
+    def contar_por_estado(
+        self, db: Session, desde: dt.date, hasta: dt.date, sucursal_id: int | None = None
+    ) -> list[dict]:
+        """Para `reportes` (P6.3): cantidad de reservas por estado en el
+        período, filtradas por `fecha_visita`."""
+        condiciones = [Reserva.fecha_visita >= desde, Reserva.fecha_visita <= hasta]
+        if sucursal_id is not None:
+            condiciones.append(Reserva.sucursal_id == sucursal_id)
+        consulta = (
+            select(EstadoReserva.codigo, EstadoReserva.nombre, func.count(Reserva.id).label("cantidad"))
+            .join(Reserva, Reserva.estado_id == EstadoReserva.id)
+            .where(*condiciones)
+            .group_by(EstadoReserva.codigo, EstadoReserva.nombre)
+            .order_by(EstadoReserva.codigo)
+        )
+        return [dict(fila) for fila in db.execute(consulta).mappings().all()]

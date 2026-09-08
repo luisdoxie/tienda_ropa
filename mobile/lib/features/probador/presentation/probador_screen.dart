@@ -17,6 +17,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../tracking/models/evento.dart';
+import '../../tracking/state/tracking_service.dart';
 import '../models/activo_probador.dart';
 import '../state/probador_providers.dart';
 
@@ -290,6 +292,7 @@ class _ModoEspejoState extends ConsumerState<_ModoEspejo> with WidgetsBindingObs
       if (esInicial && !_sesionRegistrada) {
         _sesionRegistrada = true;
         unawaited(ref.read(probadorRepositoryProvider).registrarSesion(varianteId: prenda.varianteId, modo: 'espejo'));
+        ref.read(trackingServiceProvider).track(tipo: TipoEvento.probador, varianteId: prenda.varianteId);
       }
     } catch (e, stack) {
       debugPrint('Error cargando overlay de la prenda ${prenda.varianteId}: $e\n$stack');
@@ -675,6 +678,7 @@ class _ModoRealistaState extends ConsumerState<_ModoRealista> {
     });
     if (prenda != null) {
       unawaited(ref.read(probadorRepositoryProvider).registrarSesion(varianteId: prenda.varianteId, modo: 'generativo'));
+      ref.read(trackingServiceProvider).track(tipo: TipoEvento.probador, varianteId: prenda.varianteId);
     }
   }
 

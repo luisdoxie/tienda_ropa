@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import ParametrosPaginacion
@@ -17,6 +17,37 @@ from app.ventas.models import (
     PromocionAlcance,
     Venta,
 )
+
+# Vista de reportes documentada en docs/fashionstore_esquema.sql, nunca
+# creada por una migración hasta P6.3. Extendida con producto_id/
+# categoria_id/categoria (el esquema documentado solo trae `producto`,
+# pero /reportes/ventas necesita filtrar por categoría) -- vive acá porque
+# la vista pertenece conceptualmente a `ventas` (agrega venta_detalle),
+# mismo criterio que vw_inventario_consolidado vive en `inventario`.
+VW_VENTAS_DETALLE_SQL = """
+CREATE VIEW vw_ventas_detalle AS
+SELECT  ve.id              AS venta_id,
+        ve.codigo,
+        ve.canal,
+        ve.fecha,
+        s.id               AS sucursal_id,
+        s.nombre           AS sucursal,
+        p.id               AS producto_id,
+        p.nombre           AS producto,
+        cat.id             AS categoria_id,
+        cat.nombre         AS categoria,
+        vd.cantidad,
+        vd.precio_unitario,
+        vd.subtotal,
+        vd.costo_unitario,
+        (vd.subtotal - (vd.cantidad * COALESCE(vd.costo_unitario, 0))) AS margen
+FROM venta_detalle vd
+JOIN venta ve            ON ve.id = vd.venta_id
+JOIN sucursal s          ON s.id = ve.sucursal_id
+JOIN producto_variante v ON v.id = vd.variante_id
+JOIN producto p          ON p.id = v.producto_id
+JOIN categoria cat       ON cat.id = p.categoria_id
+"""
 
 
 class EstadoVentaRepository:
@@ -167,3 +198,120 @@ class DevolucionRepository:
             )
         )
         return int(total or 0)
+
+
+# ---- Reportes (P6.3) ---------------------------------------------------------
+# Funciones módulo, no de clase -- mismo criterio que consolidado()/alertas()/
+# valuacion() en inventario/repository.py: consultas de solo lectura contra
+# una vista de reportes, no CRUD.
+
+
+def _filas_a_dicts(db: Session, consulta: str, parametros: dict) -> list[dict]:
+    filas = db.execute(text(consulta), parametros).mappings().all()
+    return [dict(fila) for fila in filas]
+
+
+def _condiciones_ventas(
+    desde: dt.date,
+    hasta: dt.date,
+    sucursal_id: int | None,
+    categoria_id: int | None,
+    canal: str | None,
+) -> tuple[list[str], dict]:
+    # hasta_exclusiva: `fecha` es timestamp, desde/hasta son solo fecha --
+    # sin esto, las ventas del día `hasta` (con hora > 00:00) quedarían
+    # afuera del rango.
+    condiciones = ["fecha >= :desde", "fecha < :hasta_exclusiva"]
+    parametros: dict = {"desde": desde, "hasta_exclusiva": hasta + dt.timedelta(days=1)}
+    if sucursal_id is not None:
+        condiciones.append("sucursal_id = :sucursal_id")
+        parametros["sucursal_id"] = sucursal_id
+    if categoria_id is not None:
+        condiciones.append("categoria_id = :categoria_id")
+        parametros["categoria_id"] = categoria_id
+    if canal is not None:
+        condiciones.append("canal = :canal")
+        parametros["canal"] = canal
+    return condiciones, parametros
+
+
+def detalle(
+    db: Session,
+    desde: dt.date,
+    hasta: dt.date,
+    sucursal_id: int | None = None,
+    categoria_id: int | None = None,
+    canal: str | None = None,
+) -> list[dict]:
+    condiciones, parametros = _condiciones_ventas(desde, hasta, sucursal_id, categoria_id, canal)
+    consulta = "SELECT * FROM vw_ventas_detalle WHERE " + " AND ".join(condiciones) + " ORDER BY fecha DESC"
+    return _filas_a_dicts(db, consulta, parametros)
+
+
+def resumen(
+    db: Session,
+    desde: dt.date,
+    hasta: dt.date,
+    sucursal_id: int | None = None,
+    categoria_id: int | None = None,
+    canal: str | None = None,
+) -> dict:
+    condiciones, parametros = _condiciones_ventas(desde, hasta, sucursal_id, categoria_id, canal)
+    consulta = (
+        "SELECT COUNT(DISTINCT venta_id) AS transacciones, "
+        "COALESCE(SUM(subtotal), 0) AS total_ventas, "
+        "COALESCE(SUM(margen), 0) AS margen_bruto "
+        "FROM vw_ventas_detalle WHERE " + " AND ".join(condiciones)
+    )
+    fila = db.execute(text(consulta), parametros).mappings().one()
+    return dict(fila)
+
+
+def top_productos(
+    db: Session,
+    desde: dt.date,
+    hasta: dt.date,
+    sucursal_id: int | None = None,
+    categoria_id: int | None = None,
+    canal: str | None = None,
+    limite: int = 10,
+) -> list[dict]:
+    condiciones, parametros = _condiciones_ventas(desde, hasta, sucursal_id, categoria_id, canal)
+    parametros["limite"] = limite
+    consulta = (
+        "SELECT producto_id, producto, SUM(cantidad) AS cantidad_vendida, SUM(subtotal) AS total_vendido "
+        "FROM vw_ventas_detalle WHERE "
+        + " AND ".join(condiciones)
+        + " GROUP BY producto_id, producto ORDER BY cantidad_vendida DESC LIMIT :limite"
+    )
+    return _filas_a_dicts(db, consulta, parametros)
+
+
+def por_canal(
+    db: Session, desde: dt.date, hasta: dt.date, sucursal_id: int | None = None, categoria_id: int | None = None
+) -> list[dict]:
+    condiciones, parametros = _condiciones_ventas(desde, hasta, sucursal_id, categoria_id, None)
+    consulta = (
+        "SELECT canal, COUNT(DISTINCT venta_id) AS transacciones, SUM(subtotal) AS total_ventas "
+        "FROM vw_ventas_detalle WHERE " + " AND ".join(condiciones) + " GROUP BY canal ORDER BY canal"
+    )
+    return _filas_a_dicts(db, consulta, parametros)
+
+
+def por_sucursal(
+    db: Session, desde: dt.date, hasta: dt.date, categoria_id: int | None = None, canal: str | None = None
+) -> list[dict]:
+    condiciones, parametros = _condiciones_ventas(desde, hasta, None, categoria_id, canal)
+    consulta = (
+        "SELECT sucursal_id, sucursal, COUNT(DISTINCT venta_id) AS transacciones, SUM(subtotal) AS total_ventas "
+        "FROM vw_ventas_detalle WHERE " + " AND ".join(condiciones) + " GROUP BY sucursal_id, sucursal ORDER BY sucursal_id"
+    )
+    return _filas_a_dicts(db, consulta, parametros)
+
+
+def contar_ventas_con_reserva(db: Session, desde: dt.date, hasta: dt.date, sucursal_id: int | None = None) -> int:
+    condiciones = [Venta.reserva_id.is_not(None), Venta.fecha >= desde, Venta.fecha < hasta + dt.timedelta(days=1)]
+    if sucursal_id is not None:
+        condiciones.append(Venta.sucursal_id == sucursal_id)
+    total = db.scalar(select(func.count(Venta.id)).where(*condiciones))
+    return int(total or 0)

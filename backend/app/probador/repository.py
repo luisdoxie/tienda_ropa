@@ -132,3 +132,25 @@ class SesionRepository:
         db.commit()
         db.refresh(sesion)
         return sesion
+
+    def listar_reciente_por_cliente(self, db: Session, cliente_id: int, limite: int) -> list[SesionProbador]:
+        consulta = (
+            select(SesionProbador)
+            .where(SesionProbador.cliente_id == cliente_id)
+            .order_by(SesionProbador.creado_en.desc())
+            .limit(limite)
+        )
+        return list(db.scalars(consulta))
+
+    def contar_por_periodo(self, db: Session, desde: dt.date, hasta: dt.date) -> list[dict]:
+        """Para `reportes` (P6.3): sesiones por modo en el período.
+        `sesion_probador` no tiene `sucursal_id` -- sin filtro posible por
+        sucursal, es una limitación real del esquema, no un descuido."""
+        hasta_exclusiva = hasta + dt.timedelta(days=1)
+        consulta = (
+            select(SesionProbador.modo, func.count(SesionProbador.id).label("cantidad"))
+            .where(SesionProbador.creado_en >= desde, SesionProbador.creado_en < hasta_exclusiva)
+            .group_by(SesionProbador.modo)
+            .order_by(SesionProbador.modo)
+        )
+        return [dict(fila) for fila in db.execute(consulta).mappings().all()]

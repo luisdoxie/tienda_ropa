@@ -212,6 +212,12 @@ export const routes: Routes = [
           import('./features/reservas/reservas.component').then((m) => m.ReservasComponent),
       },
       {
+        path: 'reportes',
+        canActivate: [permisoGuard('reportes.ver')],
+        loadComponent: () =>
+          import('./features/reportes/reportes.component').then((m) => m.ReportesComponent),
+      },
+      {
         path: 'caja',
         canActivate: [permisoGuard('ventas.presencial')],
         loadComponent: () => import('./features/caja/caja.component').then((m) => m.CajaComponent),

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core import storage
 from app.core.database import SessionLocal
+from app.core.deps import ParametrosPeriodo
 from app.core.exceptions import DomainError, PermisoDenegadoError
 from app.catalogo import service as catalogo_service
 from app.seguridad import service as seguridad_service
@@ -246,6 +247,17 @@ def registrar_sesion(db: Session, usuario_id: int, datos: SesionCrear) -> Sesion
     cliente = seguridad_service.obtener_perfil_cliente(db, usuario_id)
     catalogo_service.obtener_variante(db, datos.variante_id)  # 404 si no existe
     return sesion_repo.crear(db, cliente.id, datos.variante_id, datos.modo, datos.duracion_seg)
+
+
+def listar_sesiones_recientes_cliente(db: Session, cliente_id: int, limite: int = 50) -> list[SesionProbador]:
+    """Para `inteligencia` (P6.2, capa de reglas): usos recientes del
+    probador de un cliente, sin consultar `sesion_probador` directamente."""
+    return sesion_repo.listar_reciente_por_cliente(db, cliente_id, limite)
+
+
+def reporte_uso_probador(db: Session, periodo: ParametrosPeriodo) -> list[dict]:
+    """Para `reportes` (P6.3): sesiones del probador por modo en el período."""
+    return sesion_repo.contar_por_periodo(db, periodo.desde, periodo.hasta)
 
 
 # ---- Recomendación de talla ---------------------------------------------------

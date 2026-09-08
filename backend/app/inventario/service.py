@@ -223,6 +223,12 @@ def listar_valuacion(db: Session, sucursal_id: int | None = None) -> list[dict]:
     return inventario_repo.valuacion(db, sucursal_id)
 
 
+def listar_variantes_con_stock(db: Session) -> set[int]:
+    """Para `inteligencia` (P6.2, capa de reglas): variantes con stock
+    disponible en cualquier sucursal, sin consultar `stock` directamente."""
+    return stock_repo.listar_variantes_con_stock(db)
+
+
 # ---- Ajustes ------------------------------------------------------------------
 
 

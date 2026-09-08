@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.catalogo import service as catalogo_service
 from app.core import service as core_service
+from app.core.deps import ParametrosPeriodo
 from app.core.exceptions import ConflictoError, DomainError, NoEncontradoError, PermisoDenegadoError
 from app.core.security import permisos_de_usuario
 from app.inventario import service as inventario_service
@@ -171,6 +172,15 @@ def listar_mis_reservas(db: Session, usuario_id: int) -> list[Reserva]:
 def listar_reservas_sucursal(db: Session, sucursal_id: int) -> list[Reserva]:
     organizacion_service.obtener_sucursal(db, sucursal_id)
     return reserva_repo.listar_por_sucursal(db, sucursal_id)
+
+
+def reporte_reservas_por_estado(
+    db: Session, periodo: ParametrosPeriodo, sucursal_id: int | None = None
+) -> list[dict]:
+    """Para `reportes` (P6.3): cantidad de reservas por estado en el
+    período, sin saber nada de si terminaron en una venta -- esa cuenta
+    cruzada la hace `reportes.service`, no acá."""
+    return reserva_repo.contar_por_estado(db, periodo.desde, periodo.hasta, sucursal_id)
 
 
 def obtener_reserva_para_venta(db: Session, reserva_id: int) -> Reserva:

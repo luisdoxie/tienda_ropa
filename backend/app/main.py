@@ -27,6 +27,7 @@ from app.inventario.router import routers as inventario_routers
 from app.organizacion.router import routers as organizacion_routers
 from app.pagos.router import routers as pagos_routers
 from app.probador.router import routers as probador_routers
+from app.reportes.router import routers as reportes_routers
 from app.reservas.router import routers as reservas_routers
 from app.seguridad.router import routers as seguridad_routers
 from app.ventas.router import routers as ventas_routers
@@ -78,5 +79,6 @@ for router in (
     + pagos_routers
     + entregas_routers
     + inteligencia_routers
+    + reportes_routers
 ):
     app.include_router(router)

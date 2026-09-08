@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/state/auth_controller.dart';
 import '../../compras/state/carrito_controller.dart';
+import '../../recomendador/presentation/carrusel_recomendaciones.dart';
+import '../../recomendador/state/recomendador_providers.dart';
 import '../../voz/presentation/voz_boton.dart';
 import '../models/catalogo_item.dart';
 import '../models/filtros_catalogo.dart';
@@ -202,6 +204,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
             ),
           ),
           if (estado.etiquetasVoz.isNotEmpty) _ChipsFiltrosVoz(etiquetas: estado.etiquetasVoz),
+          CarruselRecomendaciones(provider: recomendacionesHomeProvider, titulo: 'Para vos'),
           Expanded(child: _Contenido(estado: estado, scrollController: _scrollController)),
         ],
       ),

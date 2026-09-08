@@ -6,13 +6,13 @@
   <div class="saludo-fecha">{{ fechaHoy }}</div>
 </div>
 
-@if (!cargando() && sucursalId() === null) {
+@if (!cargando() && sucursalId() === null && !vistaGlobal()) {
   <p class="aviso">
     No tenés una sucursal asignada. Pedile a un administrador que te asigne una para ver los indicadores.
   </p>
 }
 
-@if (sucursalId() !== null) {
+@if (mostrarIndicadores()) {
   <div class="stat-fila">
     @if (puedeVentas()) {
       <div class="fs-card stat-tarjeta">

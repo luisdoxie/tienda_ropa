@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { fechaLocalIso } from '../../core/date-utils';
 import { AuthService } from '../../core/auth.service';
@@ -54,10 +55,13 @@ export class DashboardComponent implements OnInit {
   protected readonly puedeReservas = computed(() =>
     this.authService.tienePermiso('reservas.gestionar_sucursal'),
   );
+  private readonly esAdministrador = computed(() => this.authService.roles().includes('administrador'));
 
   protected readonly cargando = signal(true);
   protected readonly sucursalId = signal<number | null>(null);
   protected readonly sucursalNombre = signal<string | null>(null);
+  protected readonly vistaGlobal = signal(false);
+  protected readonly mostrarIndicadores = computed(() => this.sucursalId() !== null || this.vistaGlobal());
 
   protected readonly ticketsHoy = signal(0);
   protected readonly totalVentasHoy = signal(0);
@@ -84,7 +88,30 @@ export class DashboardComponent implements OnInit {
         if (this.puedeInventario()) this.cargarAlertasStock(empleado.sucursal_id);
         if (this.puedeReservas()) this.cargarReservasHoy(empleado.sucursal_id);
       },
-      error: () => this.cargando.set(false),
+      error: () => {
+        this.cargando.set(false);
+        if (this.esAdministrador()) this.cargarVistaGlobal();
+      },
+    });
+  }
+
+  /** Un administrador no tiene por qué tener un registro de empleado (no
+   * está atado a una sucursal): en vez del aviso "sin sucursal asignada",
+   * arma los mismos indicadores pero agregados de todas las sucursales. */
+  private cargarVistaGlobal(): void {
+    this.vistaGlobal.set(true);
+    this.sucursalNombre.set('Todas las sucursales');
+
+    if (this.puedeInventario()) this.cargarAlertasStock(null);
+
+    this.http.get<Sucursal[]>(`${environment.apiUrl}/sucursales?tamanio=100`).subscribe({
+      next: (sucursales) => {
+        const ids = sucursales.map((s) => s.id);
+        if (!ids.length) return;
+
+        if (this.puedeVentas()) this.cargarVentasTodasSucursales(ids);
+        if (this.puedeReservas()) this.cargarReservasTodasSucursales(ids);
+      },
     });
   }
 
@@ -95,54 +122,69 @@ export class DashboardComponent implements OnInit {
   }
 
   private cargarVentasHoy(sucursalId: number): void {
-    this.http.get<Venta[]>(`${environment.apiUrl}/ventas/sucursal/${sucursalId}`).subscribe({
-      next: (ventas) => {
-        const hoy = fechaLocalIso(new Date());
-        const ventasHoy = ventas.filter((v) => v.fecha.slice(0, 10) === hoy);
+    this.http
+      .get<Venta[]>(`${environment.apiUrl}/ventas/sucursal/${sucursalId}`)
+      .subscribe({ next: (ventas) => this.procesarVentas(ventas) });
+  }
 
-        this.ticketsHoy.set(ventasHoy.length);
-        this.totalVentasHoy.set(ventasHoy.reduce((acc, v) => acc + v.total, 0));
+  private cargarVentasTodasSucursales(sucursalIds: number[]): void {
+    forkJoin(sucursalIds.map((id) => this.http.get<Venta[]>(`${environment.apiUrl}/ventas/sucursal/${id}`))).subscribe(
+      { next: (listas) => this.procesarVentas(listas.flat()) },
+    );
+  }
 
-        const cantidadPorVariante = new Map<number, number>();
-        for (const venta of ventasHoy) {
-          for (const linea of venta.detalle) {
-            cantidadPorVariante.set(linea.variante_id, (cantidadPorVariante.get(linea.variante_id) ?? 0) + linea.cantidad);
-          }
-        }
-        const top = [...cantidadPorVariante.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 4)
-          .map(([variante_id, cantidad]) => ({ variante_id, cantidad, nombre: `Variante ${variante_id}`, imagen: null }));
-        this.vendidosHoy.set(top);
+  private procesarVentas(ventas: Venta[]): void {
+    const hoy = fechaLocalIso(new Date());
+    const ventasHoy = ventas.filter((v) => v.fecha.slice(0, 10) === hoy);
 
+    this.ticketsHoy.set(ventasHoy.length);
+    this.totalVentasHoy.set(ventasHoy.reduce((acc, v) => acc + v.total, 0));
+
+    const cantidadPorVariante = new Map<number, number>();
+    for (const venta of ventasHoy) {
+      for (const linea of venta.detalle) {
+        cantidadPorVariante.set(linea.variante_id, (cantidadPorVariante.get(linea.variante_id) ?? 0) + linea.cantidad);
+      }
+    }
+    const top = [...cantidadPorVariante.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([variante_id, cantidad]) => ({ variante_id, cantidad, nombre: `Variante ${variante_id}`, imagen: null }));
+    this.vendidosHoy.set(top);
+
+    if (top.length) {
+      this.cargarFotos(top.map((v) => v.variante_id), []);
+    }
+  }
+
+  private cargarAlertasStock(sucursalId: number | null): void {
+    const query = sucursalId !== null ? `?sucursal_id=${sucursalId}` : '';
+    this.http.get<FilaConsolidado[]>(`${environment.apiUrl}/inventario/alertas${query}`).subscribe({
+      next: (filas) => {
+        const top: AlertaStockConFoto[] = filas.slice(0, 4).map((f) => ({ ...f, imagen: null }));
+        this.alertasStock.set(top);
         if (top.length) {
-          this.cargarFotos(top.map((v) => v.variante_id), []);
+          this.cargarFotos([], top.map((f) => f.producto_id));
         }
       },
     });
-  }
-
-  private cargarAlertasStock(sucursalId: number): void {
-    this.http
-      .get<FilaConsolidado[]>(`${environment.apiUrl}/inventario/alertas?sucursal_id=${sucursalId}`)
-      .subscribe({
-        next: (filas) => {
-          const top: AlertaStockConFoto[] = filas.slice(0, 4).map((f) => ({ ...f, imagen: null }));
-          this.alertasStock.set(top);
-          if (top.length) {
-            this.cargarFotos([], top.map((f) => f.producto_id));
-          }
-        },
-      });
   }
 
   private cargarReservasHoy(sucursalId: number): void {
-    this.http.get<Reserva[]>(`${environment.apiUrl}/reservas/sucursal/${sucursalId}`).subscribe({
-      next: (reservas) => {
-        const hoy = fechaLocalIso(new Date());
-        this.reservasHoy.set(reservas.filter((r) => r.fecha_visita.slice(0, 10) === hoy));
-      },
-    });
+    this.http
+      .get<Reserva[]>(`${environment.apiUrl}/reservas/sucursal/${sucursalId}`)
+      .subscribe({ next: (reservas) => this.procesarReservas(reservas) });
+  }
+
+  private cargarReservasTodasSucursales(sucursalIds: number[]): void {
+    forkJoin(
+      sucursalIds.map((id) => this.http.get<Reserva[]>(`${environment.apiUrl}/reservas/sucursal/${id}`)),
+    ).subscribe({ next: (listas) => this.procesarReservas(listas.flat()) });
+  }
+
+  private procesarReservas(reservas: Reserva[]): void {
+    const hoy = fechaLocalIso(new Date());
+    this.reservasHoy.set(reservas.filter((r) => r.fecha_visita.slice(0, 10) === hoy));
   }
 
   /** Resuelve nombre+foto real de producto vía el catálogo público -- ver

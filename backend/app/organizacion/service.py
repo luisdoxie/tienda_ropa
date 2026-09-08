@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictoError, NoEncontradoError
@@ -15,6 +16,16 @@ def obtener_sucursal(db: Session, sucursal_id: int) -> Sucursal:
     """Para que otros paquetes (p. ej. `inventario`) validen una sucursal
     sin consultar la tabla `sucursal` directamente."""
     return sucursal_repo.obtener(db, sucursal_id)
+
+
+def resolver_sucursal_por_nombre(db: Session, nombre: str | None) -> int | None:
+    """Para `inteligencia` (P6.1, búsqueda por voz): matchea el nombre de
+    sucursal que devolvió Groq (case-insensitive, exacto) sin consultar
+    `sucursal` directamente. Sin match, devuelve None -- no rompe la
+    búsqueda."""
+    if not nombre:
+        return None
+    return db.scalar(select(Sucursal.id).where(Sucursal.nombre.ilike(nombre), Sucursal.activo.is_(True)))
 
 
 def obtener_horario_dia(db: Session, sucursal_id: int, dia_semana: int) -> HorarioSucursal | None:

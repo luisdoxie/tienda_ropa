@@ -11,6 +11,7 @@ from app.catalogo.models import (
     Categoria,
     Coleccion,
     Color,
+    Material,
     Producto,
     ProductoImagen,
     ProductoVariante,
@@ -40,6 +41,7 @@ from app.catalogo.schemas import (
     ColeccionCrear,
     FavoritoRespuesta,
     FiltrosCatalogo,
+    Genero,
     ImagenRespuesta,
     ProductoActualizar,
     ProductoCrear,
@@ -47,6 +49,7 @@ from app.catalogo.schemas import (
     TablaMedidaActualizar,
     TablaMedidaCrear,
     TemporadaActualizar,
+    ValoresReferenciaCatalogo,
     VarianteActualizar,
     VarianteCatalogoRespuesta,
     VariantesGenerarRequest,
@@ -533,3 +536,49 @@ def obtener_info_promocion(variante: ProductoVariante) -> tuple[int, int, int | 
     `producto` directamente."""
     producto = variante.producto
     return producto.id, producto.categoria_id, producto.temporada_id
+
+
+def listar_valores_referencia(db: Session) -> ValoresReferenciaCatalogo:
+    """Para que `inteligencia` (P6.1, búsqueda por voz) arme el prompt de
+    Groq con los valores válidos reales, sin consultar categoria/material/
+    color/talla/temporada directamente."""
+    return ValoresReferenciaCatalogo(
+        categorias=list(db.scalars(select(Categoria.nombre).where(Categoria.activo.is_(True)))),
+        materiales=list(db.scalars(select(Material.nombre))),
+        colores=list(db.scalars(select(Color.nombre))),
+        tallas=list(db.scalars(select(Talla.codigo))),
+        temporadas=list(
+            db.scalars(select(Temporada.nombre).where(Temporada.activo.is_(True)).distinct())
+        ),
+    )
+
+
+def _resolver_por_nombre(db: Session, columna_id, columna_nombre, nombre: str | None) -> int | None:
+    if not nombre:
+        return None
+    return db.scalar(select(columna_id).where(columna_nombre.ilike(nombre)))
+
+
+def resolver_filtros_por_nombre(
+    db: Session,
+    categoria: str | None,
+    material: str | None,
+    color: str | None,
+    talla: str | None,
+    temporada: str | None,
+    genero: Genero | None,
+    precio_max,
+) -> FiltrosCatalogo:
+    """Para `inteligencia.service`: matchea cada nombre que devolvió Groq
+    (case-insensitive, exacto) contra la tabla correspondiente. Un nombre
+    sin match deja ese filtro en None -- nunca rompe la búsqueda, solo la
+    deja sin acotar por ese campo."""
+    return FiltrosCatalogo(
+        categoria_id=_resolver_por_nombre(db, Categoria.id, Categoria.nombre, categoria),
+        material_id=_resolver_por_nombre(db, Material.id, Material.nombre, material),
+        color_id=_resolver_por_nombre(db, Color.id, Color.nombre, color),
+        talla_id=_resolver_por_nombre(db, Talla.id, Talla.codigo, talla),
+        temporada_id=_resolver_por_nombre(db, Temporada.id, Temporada.nombre, temporada),
+        genero=genero,
+        precio_max=precio_max,
+    )

@@ -5,10 +5,21 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/state/auth_controller.dart';
 import '../../compras/state/carrito_controller.dart';
+import '../../voz/presentation/voz_boton.dart';
 import '../models/catalogo_item.dart';
 import '../models/filtros_catalogo.dart';
 import '../state/catalogo_controller.dart';
 import 'filtros_sheet.dart';
+
+const _etiquetasCampoVoz = {
+  'categoria': 'Categoría',
+  'material': 'Material',
+  'color': 'Color',
+  'talla': 'Talla',
+  'temporada': 'Temporada',
+  'genero': 'Género',
+  'precio_max': 'Hasta Bs',
+};
 
 enum _AccionMenu { favoritos, carrito, compras, reservas, salir, iniciarSesion }
 
@@ -180,6 +191,8 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
+                const VozBoton(),
+                const SizedBox(width: AppSpacing.sm),
                 IconButton.filledTonal(
                   icon: Icon(estado.filtros.tieneFiltros ? Icons.filter_alt : Icons.filter_alt_outlined),
                   tooltip: 'Filtros',
@@ -188,7 +201,34 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
               ],
             ),
           ),
+          if (estado.etiquetasVoz.isNotEmpty) _ChipsFiltrosVoz(etiquetas: estado.etiquetasVoz),
           Expanded(child: _Contenido(estado: estado, scrollController: _scrollController)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Filtros que puso la última búsqueda por voz (P6.1), como chips que se
+/// pueden quitar uno por uno sin perder los demás.
+class _ChipsFiltrosVoz extends ConsumerWidget {
+  const _ChipsFiltrosVoz({required this.etiquetas});
+
+  final Map<String, String> etiquetas;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.xs,
+        children: [
+          for (final entrada in etiquetas.entries)
+            InputChip(
+              label: Text('${_etiquetasCampoVoz[entrada.key] ?? entrada.key}: ${entrada.value}'),
+              onDeleted: () => ref.read(catalogoControllerProvider.notifier).quitarFiltroVoz(entrada.key),
+            ),
         ],
       ),
     );

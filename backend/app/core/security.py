@@ -107,6 +107,30 @@ def get_current_user(
     return usuario
 
 
+def get_current_user_opcional(
+    credenciales: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    db: Session = Depends(get_db),
+):
+    """Igual que `get_current_user`, pero devuelve `None` en vez de 401 si no
+    hay token o es inválido/expirado. Para endpoints públicos que igual
+    quieren asociar la acción a un usuario logueado cuando lo hay (p. ej.
+    POST /ia/voz, que admite búsqueda anónima)."""
+    from app.seguridad.models import Usuario
+
+    if credenciales is None:
+        return None
+    try:
+        payload = decodificar_token(credenciales.credentials)
+    except HTTPException:
+        return None
+    if payload.get("tipo") != "access":
+        return None
+    usuario = db.get(Usuario, int(payload["sub"]))
+    if usuario is None or not usuario.activo:
+        return None
+    return usuario
+
+
 def require_permission(codigo: str):
     """Dependencia que exige el permiso `codigo`.
 

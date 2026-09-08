@@ -32,6 +32,10 @@
 	<string>FashionStore guarda en tu galería la foto que sacás en el probador.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>FashionStore necesita acceso a tus fotos para elegir una y probar cómo te queda una prenda.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FashionStore usa el micrófono para la búsqueda por voz en el catálogo.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>FashionStore transcribe tu voz para buscar prendas en el catálogo.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

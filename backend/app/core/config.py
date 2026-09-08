@@ -74,6 +74,19 @@ class Settings(BaseSettings):
     paypal_client_secret: str = ""
     paypal_mode: str = "sandbox"
 
+    # Búsqueda por voz (paquete `inteligencia`, P6.1): Groq expone una API
+    # HTTP compatible con OpenAI, sin SDK propio en requirements.txt (se
+    # llama con httpx, igual que probador/service.py llama a otras APIs
+    # externas). Sin groq_api_key configurada, el parser de voz falla y
+    # inteligencia.service cae directo al fallback de texto plano.
+    # `llama-3.3-70b-versatile` (el que sugiere el enunciado) ya no está
+    # disponible en cuentas nuevas de Groq -- comprobado contra
+    # GET /openai/v1/models con la key real de este proyecto. gpt-oss-20b
+    # sí está disponible, responde JSON limpio y es liviano (menor latencia
+    # para una búsqueda por voz).
+    groq_api_key: str = ""
+    groq_modelo: str = "openai/gpt-oss-20b"
+
     # Peso promedio de una prenda (kg), para estimar el peso total de un
     # pedido en entregas.service._peso_pedido() sin modelar el peso real de
     # cada variante (fuera del alcance de P5.3).

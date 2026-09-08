@@ -365,6 +365,18 @@ class FiltrosCatalogo(BaseModel):
     solo_disponibles: bool = False
 
 
+class ValoresReferenciaCatalogo(BaseModel):
+    """Nombres activos de las tablas de referencia del catálogo, para que
+    `inteligencia` arme el prompt de Groq (P6.1) sin consultar `categoria`,
+    `material`, `color`, `talla` ni `temporada` directamente."""
+
+    categorias: list[str]
+    materiales: list[str]
+    colores: list[str]
+    tallas: list[str]
+    temporadas: list[str]
+
+
 class CatalogoItemRespuesta(BaseModel):
     """Fila liviana para el listado. Sin variantes ni medidas: eso es
     solo para el detalle, para no pagar el peso de todo el producto en

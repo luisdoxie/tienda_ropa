@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../theme/app_theme.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/registro_screen.dart';
 import '../../features/auth/state/auth_controller.dart';
@@ -36,12 +37,50 @@ bool _esRutaAuth(String ruta) => ruta == '/login' || ruta == '/registro';
 // Todo lo demás cae en la rama "protegida" del redirect de abajo.
 bool _esRutaPublicaParaInvitado(String ruta) => ruta == '/home' || ruta.startsWith('/producto/');
 
+/// Un path parameter que debería ser numérico (id de producto/reserva/pago/
+/// compra) puede llegar mal formado desde un deep link, notificación push o
+/// link compartido a mano -- `int.tryParse` en vez de `int.parse` evita que
+/// eso tire una FormatException sin capturar durante el build de la ruta.
+int? _parseId(String? valor) => valor == null ? null : int.tryParse(valor);
+
+/// Se muestra en vez de crashear cuando un path parameter no es válido, o
+/// cuando GoRouter no reconoce la ruta pedida (deep link roto/viejo).
+class _RutaInvalidaScreen extends StatelessWidget {
+  const _RutaInvalidaScreen({this.mensaje = 'No encontramos lo que buscabas.'});
+
+  final String mensaje;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.fondo,
+      appBar: AppBar(title: const Text('No encontrado')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.search_off, size: 48, color: AppColors.textoTenue),
+              const SizedBox(height: AppSpacing.md),
+              Text(mensaje, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textoTenue)),
+              const SizedBox(height: AppSpacing.md),
+              FilledButton(onPressed: () => context.go('/home'), child: const Text('Volver al inicio')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   final refresco = ref.watch(_refrescoDelRouterProvider);
 
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: refresco,
+    errorBuilder: (context, state) => const _RutaInvalidaScreen(mensaje: 'Esa página no existe.'),
     redirect: (context, state) {
       final authState = ref.read(authControllerProvider);
       final ruta = state.matchedLocation;
@@ -80,7 +119,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/home', builder: (context, state) => const CatalogoScreen()),
       GoRoute(
         path: '/producto/:id',
-        builder: (context, state) => DetalleScreen(productoId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) {
+          final id = _parseId(state.pathParameters['id']);
+          if (id == null) return const _RutaInvalidaScreen(mensaje: 'Ese producto no existe.');
+          return DetalleScreen(productoId: id);
+        },
       ),
       GoRoute(path: '/favoritos', builder: (context, state) => const FavoritosScreen()),
       GoRoute(path: '/probador', builder: (context, state) => const ProbadorScreen()),
@@ -88,7 +131,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/reservas', builder: (context, state) => const MisReservasScreen()),
       GoRoute(
         path: '/reserva/:id',
-        builder: (context, state) => ReservaDetalleScreen(reservaId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) {
+          final id = _parseId(state.pathParameters['id']);
+          if (id == null) return const _RutaInvalidaScreen(mensaje: 'Esa reserva no existe.');
+          return ReservaDetalleScreen(reservaId: id);
+        },
       ),
       GoRoute(path: '/carrito', builder: (context, state) => const CarritoScreen()),
       GoRoute(path: '/checkout/entrega', builder: (context, state) => const EntregaScreen()),
@@ -96,12 +143,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/checkout/pago', builder: (context, state) => const PagoScreen()),
       GoRoute(
         path: '/checkout/estado/:pagoId',
-        builder: (context, state) => EstadoPagoScreen(pagoId: int.parse(state.pathParameters['pagoId']!)),
+        builder: (context, state) {
+          final id = _parseId(state.pathParameters['pagoId']);
+          if (id == null) return const _RutaInvalidaScreen(mensaje: 'Ese pago no existe.');
+          return EstadoPagoScreen(pagoId: id);
+        },
       ),
       GoRoute(path: '/compras', builder: (context, state) => const MisComprasScreen()),
       GoRoute(
         path: '/compras/:id',
-        builder: (context, state) => CompraDetalleScreen(ventaId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) {
+          final id = _parseId(state.pathParameters['id']);
+          if (id == null) return const _RutaInvalidaScreen(mensaje: 'Esa compra no existe.');
+          return CompraDetalleScreen(ventaId: id);
+        },
       ),
     ],
   );

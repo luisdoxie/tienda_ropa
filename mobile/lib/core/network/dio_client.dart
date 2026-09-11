@@ -4,7 +4,16 @@ import 'token_storage.dart';
 
 const _rutasPublicas = ['/auth/login', '/auth/registro', '/auth/refresh', '/auth/recuperar', '/catalogo'];
 
-bool _esRutaPublica(String path) => _rutasPublicas.any((ruta) => path.contains(ruta));
+// Excepción dentro de '/catalogo': obtener_detalle_para_dashboard (usado acá
+// por el carrito, para resolver nombre/foto de cada línea) exige un usuario
+// logueado del lado del backend -- sin esto, quedaría marcado como público
+// y nunca se le mandaría el token.
+const _rutasCatalogoConToken = ['/catalogo/variantes/detalle'];
+
+bool _esRutaPublica(String path) {
+  if (_rutasCatalogoConToken.any((ruta) => path.contains(ruta))) return false;
+  return _rutasPublicas.any((ruta) => path.contains(ruta));
+}
 
 /// Cliente Dio con JWT automático y refresh transparente en 401.
 ///

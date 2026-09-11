@@ -244,22 +244,48 @@ class _Carrusel extends StatelessWidget {
   }
 }
 
-class _BotonFavorito extends ConsumerWidget {
+class _BotonFavorito extends ConsumerStatefulWidget {
   const _BotonFavorito({required this.varianteId});
 
   final int varianteId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BotonFavorito> createState() => _BotonFavoritoState();
+}
+
+class _BotonFavoritoState extends ConsumerState<_BotonFavorito> {
+  // Sin este flag, un doble tap rápido dispara dos alternar() en paralelo:
+  // ambos leen esFavorito() con el mismo valor antes de que ninguno
+  // termine, y el segundo deshace lo que acaba de hacer el primero (M-3 de
+  // la auditoría). Mismo patrón que _BotonAgregarCarrito, más abajo.
+  bool _alternando = false;
+
+  Future<void> _alternar() async {
+    setState(() => _alternando = true);
+    try {
+      await ref.read(favoritosControllerProvider.notifier).alternar(widget.varianteId);
+    } finally {
+      if (mounted) setState(() => _alternando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final controller = ref.watch(favoritosControllerProvider.notifier);
     final esFavorito = ref.watch(favoritosControllerProvider).maybeWhen(
-          data: (_) => controller.esFavorito(varianteId),
+          data: (_) => controller.esFavorito(widget.varianteId),
           orElse: () => false,
         );
 
     return IconButton(
-      icon: Icon(esFavorito ? Icons.favorite : Icons.favorite_border, color: AppColors.error),
-      onPressed: () => controller.alternar(varianteId),
+      icon: _alternando
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error),
+            )
+          : Icon(esFavorito ? Icons.favorite : Icons.favorite_border, color: AppColors.error),
+      onPressed: _alternando ? null : _alternar,
     );
   }
 }

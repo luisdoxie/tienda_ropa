@@ -111,6 +111,7 @@ class _ModoEspejoState extends ConsumerState<_ModoEspejo> with WidgetsBindingObs
   CameraDescription? _camaraFrontal;
   _EstadoPermiso _estadoPermiso = _EstadoPermiso.pidiendo;
   bool _procesandoFrame = false;
+  String? _errorCamara;
 
   Size? _tamanioImagenCamara;
   InputImageRotation _rotacion = InputImageRotation.rotation0deg;
@@ -161,25 +162,43 @@ class _ModoEspejoState extends ConsumerState<_ModoEspejo> with WidgetsBindingObs
   }
 
   Future<void> _iniciarCamara() async {
-    final camaras = await availableCameras();
-    if (camaras.isEmpty) return;
-    final camaraFrontal = camaras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => camaras.first,
-    );
-    _camaraFrontal = camaraFrontal;
+    if (mounted) setState(() => _errorCamara = null);
+    try {
+      final camaras = await availableCameras();
+      if (camaras.isEmpty) {
+        if (!mounted) return;
+        setState(() => _errorCamara = 'No se encontró ninguna cámara disponible en este equipo.');
+        return;
+      }
+      final camaraFrontal = camaras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => camaras.first,
+      );
+      _camaraFrontal = camaraFrontal;
 
-    final controller = CameraController(
-      camaraFrontal,
-      ResolutionPreset.medium,
-      enableAudio: false,
-      imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
-    );
-    _controller = controller;
-    await controller.initialize();
-    if (!mounted) return;
-    await controller.startImageStream(_procesarFrame);
-    setState(() {});
+      final controller = CameraController(
+        camaraFrontal,
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+      );
+      _controller = controller;
+      await controller.initialize();
+      if (!mounted) return;
+      await controller.startImageStream(_procesarFrame);
+      setState(() {});
+    } catch (_) {
+      // La cámara puede estar ocupada por otra app, no responder, o el
+      // permiso puede haberse revocado justo en este momento -- sin este
+      // catch, el Future queda sin manejar y la pantalla se queda
+      // congelada en el spinner de carga para siempre (M-2 de la
+      // auditoría).
+      _controller = null;
+      if (!mounted) return;
+      setState(
+        () => _errorCamara = 'No se pudo iniciar la cámara. Cerrá otras apps que puedan estar usándola e intentá de nuevo.',
+      );
+    }
   }
 
   void _procesarFrame(CameraImage imagen) {
@@ -369,6 +388,10 @@ class _ModoEspejoState extends ConsumerState<_ModoEspejo> with WidgetsBindingObs
           onPressed: openAppSettings,
         );
       case _EstadoPermiso.concedido:
+        final errorCamara = _errorCamara;
+        if (errorCamara != null) {
+          return _mensajePermiso(errorCamara, textoBoton: 'Reintentar', onPressed: _iniciarCamara);
+        }
         final controller = _controller;
         if (controller == null || !controller.value.isInitialized) {
           return const Center(child: CircularProgressIndicator(color: Colors.white));

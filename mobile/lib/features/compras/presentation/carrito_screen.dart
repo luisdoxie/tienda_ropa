@@ -131,13 +131,34 @@ class _FilaResumen extends StatelessWidget {
   }
 }
 
-class _TarjetaLinea extends ConsumerWidget {
+class _TarjetaLinea extends ConsumerStatefulWidget {
   const _TarjetaLinea({required this.linea});
 
   final CarritoLinea linea;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TarjetaLinea> createState() => _TarjetaLineaState();
+}
+
+class _TarjetaLineaState extends ConsumerState<_TarjetaLinea> {
+  // Sin este flag, taps rápidos en +/- disparan varios PATCH concurrentes
+  // sin orden garantizado de respuesta: la cantidad final mostrada puede no
+  // corresponder al último tap del usuario (M-4 de la auditoría). Mismo
+  // patrón que _BotonAgregarCarrito/_BotonFavorito en el detalle de producto.
+  bool _actualizando = false;
+
+  Future<void> _ejecutar(Future<void> Function() accion) async {
+    setState(() => _actualizando = true);
+    try {
+      await accion();
+    } finally {
+      if (mounted) setState(() => _actualizando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final linea = widget.linea;
     final controller = ref.read(carritoControllerProvider.notifier);
     final subtitulo = [
       if (linea.tallaCodigo != null) linea.tallaCodigo!,
@@ -187,25 +208,39 @@ class _TarjetaLinea extends ConsumerWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline, size: 20),
-                      onPressed: linea.cantidad <= 1
-                          ? () => controller.quitar(linea.varianteId)
-                          : () => controller.actualizarCantidad(
-                              varianteId: linea.varianteId,
-                              cantidad: linea.cantidad - 1,
-                            ),
+                      onPressed: _actualizando
+                          ? null
+                          : (linea.cantidad <= 1
+                              ? () => _ejecutar(() => controller.quitar(linea.varianteId))
+                              : () => _ejecutar(
+                                  () => controller.actualizarCantidad(
+                                    varianteId: linea.varianteId,
+                                    cantidad: linea.cantidad - 1,
+                                  ),
+                                )),
                     ),
-                    Text('${linea.cantidad}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    _actualizando
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.acento),
+                          )
+                        : Text('${linea.cantidad}', style: const TextStyle(fontWeight: FontWeight.w600)),
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline, size: 20),
-                      onPressed: () => controller.actualizarCantidad(
-                        varianteId: linea.varianteId,
-                        cantidad: linea.cantidad + 1,
-                      ),
+                      onPressed: _actualizando
+                          ? null
+                          : () => _ejecutar(
+                              () => controller.actualizarCantidad(
+                                varianteId: linea.varianteId,
+                                cantidad: linea.cantidad + 1,
+                              ),
+                            ),
                     ),
                   ],
                 ),
                 TextButton(
-                  onPressed: () => controller.quitar(linea.varianteId),
+                  onPressed: _actualizando ? null : () => _ejecutar(() => controller.quitar(linea.varianteId)),
                   child: const Text('Quitar', style: TextStyle(fontSize: 12, color: AppColors.error)),
                 ),
               ],

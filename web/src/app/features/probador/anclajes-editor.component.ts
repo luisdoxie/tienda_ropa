@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, ElementRef, ViewChild, inject, signal, computed } from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -175,6 +175,11 @@ export class AnclajesEditorComponent {
     this.anclas.update((actual) => ({ ...actual, [this.arrastrando as NombreAncla]: { x, y } }));
   }
 
+  // En window, no solo en el contenedor: si el usuario suelta el botón
+  // afuera del contenedor (arrastre rápido), el (mouseup) del contenedor
+  // nunca se dispara y `arrastrando` queda pegado a esa ancla -- el
+  // próximo mousemove adentro la seguiría moviendo sin un mousedown nuevo.
+  @HostListener('window:mouseup')
   terminarArrastre(): void {
     this.arrastrando = null;
   }

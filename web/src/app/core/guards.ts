@@ -41,7 +41,12 @@ export const staffGuard: CanActivateFn = () => {
     return router.parseUrl('/login');
   }
   const roles = authService.roles();
-  if (roles.length > 0 && roles.every((rol) => rol === 'cliente')) {
+  // Sin ningún rol de staff (incluye roles.length === 0, un usuario
+  // logueado cuya asignación de roles quedó desincronizada) no hay nada
+  // que autorice el back office -- antes, roles.length === 0 caía al
+  // `return true` final y dejaba entrar a cualquiera sin permisos reales.
+  const esStaff = roles.some((rol) => rol !== 'cliente');
+  if (!esStaff) {
     return router.parseUrl('/catalogo');
   }
   return true;

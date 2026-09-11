@@ -1,3 +1,6 @@
+// Versión de producción de environment.development.ts: Angular la usa en
+// vez de esa cuando se compila con `ng build` (fileReplacements en
+// angular.json). apiUrl acá es la URL pública del backend en Railway.
 export const environment = {
   production: true,
   apiUrl: 'https://tiendaropa-production-b36a.up.railway.app/api/v1',

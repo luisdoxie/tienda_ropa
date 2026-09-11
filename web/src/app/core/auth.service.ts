@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, finalize, shareReplay, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { RecuperarRespuesta, RegistroRequest, TokenRespuesta, Usuario, UsuarioYo } from './models/seguridad.models';
 
@@ -11,6 +11,7 @@ const CLAVE_REFRESH_TOKEN = 'fs_refresh_token';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly usuarioActual = signal<UsuarioYo | null>(null);
+  private refrescoEnCurso$: Observable<TokenRespuesta> | null = null;
 
   readonly usuario = this.usuarioActual.asReadonly();
   readonly estaAutenticado = computed(() => this.usuarioActual() !== null);
@@ -73,11 +74,30 @@ export class AuthService {
     this.router.navigate(['/login']);
   }
 
-  refrescarTokens(): Observable<TokenRespuesta> {
+  private refrescarTokens(): Observable<TokenRespuesta> {
     const refreshToken = this.getRefreshToken();
     return this.http
       .post<TokenRespuesta>(`${environment.apiUrl}/auth/refresh`, { refresh_token: refreshToken })
       .pipe(tap((tokens) => this.guardarTokens(tokens)));
+  }
+
+  /**
+   * Igual que refrescarTokens(), pero deduplicada: si varias requests
+   * reciben 401 casi al mismo tiempo (p. ej. varios GET en paralelo de un
+   * dashboard), todas comparten esta misma llamada en vez de disparar cada
+   * una su propio POST /auth/refresh. Sin esto, si el backend rota el
+   * refresh token, la segunda llamada en paralelo usa un refresh token ya
+   * invalidado por la primera y falla, cerrando la sesión de un usuario
+   * cuyo access token en realidad sí se pudo renovar (ver W-1, auditoría).
+   */
+  refrescarTokensCompartido(): Observable<TokenRespuesta> {
+    if (!this.refrescoEnCurso$) {
+      this.refrescoEnCurso$ = this.refrescarTokens().pipe(
+        finalize(() => (this.refrescoEnCurso$ = null)),
+        shareReplay(1),
+      );
+    }
+    return this.refrescoEnCurso$;
   }
 
   guardarTokens(tokens: TokenRespuesta): void {

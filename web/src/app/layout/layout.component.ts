@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { PopoverModule } from 'primeng/popover';
@@ -84,6 +85,7 @@ const ITEMS_FIN: ItemMenu[] = [
 export class LayoutComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly notificacionesService = inject(NotificacionesService);
 
   protected readonly usuario = this.authService.usuario;
@@ -110,7 +112,14 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
     this.abrirGrupoDeRuta(this.router.url);
     this.router.events
-      .pipe(filter((evento): evento is NavigationEnd => evento instanceof NavigationEnd))
+      .pipe(
+        filter((evento): evento is NavigationEnd => evento instanceof NavigationEnd),
+        // Sin esto, cada vez que un usuario staff navega del back office a
+        // la tienda pública y vuelve (LayoutComponent se destruye y se
+        // recrea), esta suscripción vieja queda viva para siempre y sigue
+        // ejecutando abrirGrupoDeRuta sobre un componente ya destruido.
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe((evento) => this.abrirGrupoDeRuta(evento.urlAfterRedirects));
   }
 

@@ -47,8 +47,8 @@ export class ZonasEnvioComponent implements OnInit {
   protected readonly formulario = this.fb.nonNullable.group({
     ciudad_id: [null as number | null, Validators.required],
     nombre: ['', Validators.required],
-    anillo_desde: [null as number | null],
-    anillo_hasta: [null as number | null],
+    anillo_desde: [null as number | null, [Validators.min(1)]],
+    anillo_hasta: [null as number | null, [Validators.min(1)]],
     tarifa_base: [0, [Validators.required, Validators.min(0)]],
   });
 

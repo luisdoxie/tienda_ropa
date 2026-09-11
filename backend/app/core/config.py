@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
 
+    # Orígenes del front Angular autorizados a llamar esta API desde el
+    # navegador (CORS es una restricción que solo aplica a peticiones desde
+    # un browser). La app Flutter (mobile/lib/core/network/dio_client.dart)
+    # no pasa por acá: Dio no está sujeto a CORS, se conecta directo contra
+    # ApiConfig.baseUrl sin que el backend tenga que autorizarla en esta lista.
+    # En producción se sobreescribe por variable de entorno con la URL de
+    # Vercel; en local coincide con environment.development.ts (web/).
     cors_origins: str = "http://localhost:4200"
 
     @property

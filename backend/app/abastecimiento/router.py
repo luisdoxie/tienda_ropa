@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.abastecimiento import service
-from app.abastecimiento.repository import ProductoProveedorRepository, ProveedorRepository
 from app.abastecimiento.schemas import (
     OrdenCompraActualizar,
     OrdenCompraCrear,
@@ -19,9 +18,6 @@ from app.core.database import get_db
 from app.core.deps import ParametrosPaginacion, parametros_paginacion
 from app.core.security import get_current_user, require_permission
 
-proveedor_repo = ProveedorRepository()
-producto_proveedor_repo = ProductoProveedorRepository()
-
 PERMISO_ABASTECIMIENTO = "abastecimiento.gestionar"
 admin_requerido = Depends(require_permission(PERMISO_ABASTECIMIENTO))
 
@@ -36,29 +32,29 @@ proveedores_router = APIRouter(
 def listar_proveedores(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[ProveedorRespuesta]:
-    return list(proveedor_repo.listar(db, paginacion))
+    return service.listar_proveedores(db, paginacion)
 
 
 @proveedores_router.get("/{proveedor_id}", response_model=ProveedorRespuesta)
 def obtener_proveedor(proveedor_id: int, db: Session = Depends(get_db)) -> ProveedorRespuesta:
-    return proveedor_repo.obtener(db, proveedor_id)
+    return service.obtener_proveedor(db, proveedor_id)
 
 
 @proveedores_router.post("", response_model=ProveedorRespuesta, status_code=status.HTTP_201_CREATED)
 def crear_proveedor(datos: ProveedorCrear, db: Session = Depends(get_db)) -> ProveedorRespuesta:
-    return proveedor_repo.crear(db, datos)
+    return service.crear_proveedor(db, datos)
 
 
 @proveedores_router.put("/{proveedor_id}", response_model=ProveedorRespuesta)
 def actualizar_proveedor(
     proveedor_id: int, datos: ProveedorActualizar, db: Session = Depends(get_db)
 ) -> ProveedorRespuesta:
-    return proveedor_repo.actualizar(db, proveedor_id, datos)
+    return service.actualizar_proveedor(db, proveedor_id, datos)
 
 
 @proveedores_router.delete("/{proveedor_id}", status_code=status.HTTP_204_NO_CONTENT)
 def desactivar_proveedor(proveedor_id: int, db: Session = Depends(get_db)) -> None:
-    proveedor_repo.desactivar(db, proveedor_id)
+    service.desactivar_proveedor(db, proveedor_id)
 
 
 # ---- /api/v1/proveedores/{id}/productos ----------------------------------------
@@ -70,8 +66,7 @@ productos_proveedor_router = APIRouter(
 
 @productos_proveedor_router.get("", response_model=list[ProductoProveedorRespuesta])
 def listar_productos_proveedor(proveedor_id: int, db: Session = Depends(get_db)) -> list[ProductoProveedorRespuesta]:
-    proveedor_repo.obtener(db, proveedor_id)
-    return list(producto_proveedor_repo.listar_por_proveedor(db, proveedor_id))
+    return service.listar_productos_proveedor(db, proveedor_id)
 
 
 @productos_proveedor_router.post(

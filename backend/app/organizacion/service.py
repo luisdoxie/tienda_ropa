@@ -1,21 +1,74 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.deps import ParametrosPaginacion
 from app.core.exceptions import ConflictoError, NoEncontradoError
-from app.organizacion.models import Empleado, HorarioSucursal, Sucursal
-from app.organizacion.repository import EmpleadoRepository, HorarioRepository, SucursalRepository
-from app.organizacion.schemas import EmpleadoActualizar, EmpleadoCrear, HorarioActualizar, HorarioCrear
+from app.organizacion.models import Ciudad, Empleado, HorarioSucursal, Sucursal
+from app.organizacion.repository import CiudadRepository, EmpleadoRepository, HorarioRepository, SucursalRepository
+from app.organizacion.schemas import (
+    CiudadActualizar,
+    CiudadCrear,
+    EmpleadoActualizar,
+    EmpleadoCrear,
+    HorarioActualizar,
+    HorarioCrear,
+    SucursalActualizar,
+    SucursalCrear,
+)
 from app.seguridad import service as seguridad_service
 
+ciudad_repo = CiudadRepository()
 sucursal_repo = SucursalRepository()
 horario_repo = HorarioRepository()
 empleado_repo = EmpleadoRepository()
+
+
+# ---- Ciudades ------------------------------------------------------------------
+
+
+def listar_ciudades(db: Session, paginacion: ParametrosPaginacion) -> list[Ciudad]:
+    return list(ciudad_repo.listar(db, paginacion))
+
+
+def obtener_ciudad(db: Session, ciudad_id: int) -> Ciudad:
+    return ciudad_repo.obtener(db, ciudad_id)
+
+
+def crear_ciudad(db: Session, datos: CiudadCrear) -> Ciudad:
+    return ciudad_repo.crear(db, datos)
+
+
+def actualizar_ciudad(db: Session, ciudad_id: int, datos: CiudadActualizar) -> Ciudad:
+    return ciudad_repo.actualizar(db, ciudad_id, datos)
+
+
+def desactivar_ciudad(db: Session, ciudad_id: int) -> Ciudad:
+    return ciudad_repo.desactivar(db, ciudad_id)
+
+
+# ---- Sucursales ------------------------------------------------------------------
 
 
 def obtener_sucursal(db: Session, sucursal_id: int) -> Sucursal:
     """Para que otros paquetes (p. ej. `inventario`) validen una sucursal
     sin consultar la tabla `sucursal` directamente."""
     return sucursal_repo.obtener(db, sucursal_id)
+
+
+def listar_sucursales(db: Session, paginacion: ParametrosPaginacion) -> list[Sucursal]:
+    return list(sucursal_repo.listar(db, paginacion))
+
+
+def crear_sucursal(db: Session, datos: SucursalCrear) -> Sucursal:
+    return sucursal_repo.crear(db, datos)
+
+
+def actualizar_sucursal(db: Session, sucursal_id: int, datos: SucursalActualizar) -> Sucursal:
+    return sucursal_repo.actualizar(db, sucursal_id, datos)
+
+
+def desactivar_sucursal(db: Session, sucursal_id: int) -> Sucursal:
+    return sucursal_repo.desactivar(db, sucursal_id)
 
 
 def resolver_sucursal_por_nombre(db: Session, nombre: str | None) -> int | None:
@@ -26,6 +79,11 @@ def resolver_sucursal_por_nombre(db: Session, nombre: str | None) -> int | None:
     if not nombre:
         return None
     return db.scalar(select(Sucursal.id).where(Sucursal.nombre.ilike(nombre), Sucursal.activo.is_(True)))
+
+
+def listar_horarios(db: Session, sucursal_id: int) -> list[HorarioSucursal]:
+    sucursal_repo.obtener(db, sucursal_id)  # 404 si no existe / está inactiva
+    return list(horario_repo.listar_por_sucursal(db, sucursal_id))
 
 
 def obtener_horario_dia(db: Session, sucursal_id: int, dia_semana: int) -> HorarioSucursal | None:
@@ -83,6 +141,18 @@ def actualizar_horario(
 def eliminar_horario(db: Session, sucursal_id: int, horario_id: int) -> None:
     horario = horario_repo.obtener(db, sucursal_id, horario_id)
     horario_repo.eliminar(db, horario)
+
+
+def listar_empleados(db: Session, paginacion: ParametrosPaginacion) -> list[Empleado]:
+    return list(empleado_repo.listar(db, paginacion))
+
+
+def obtener_empleado(db: Session, empleado_id: int) -> Empleado:
+    return empleado_repo.obtener(db, empleado_id)
+
+
+def desactivar_empleado(db: Session, empleado_id: int) -> Empleado:
+    return empleado_repo.desactivar(db, empleado_id)
 
 
 def crear_empleado(db: Session, datos: EmpleadoCrear):

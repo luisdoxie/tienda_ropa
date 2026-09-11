@@ -1,5 +1,9 @@
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 class DomainError(Exception):
@@ -30,3 +34,14 @@ def registrar_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.mensaje})
+
+    @app.exception_handler(Exception)
+    async def excepcion_no_controlada_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Red de seguridad para lo que ningún DomainError esperaba
+        (IntegrityError de SQLAlchemy, KeyError, etc.): sin esto, FastAPI
+        deja pasar el 500 genérico de Starlette sin loguear nada y (en
+        debug) exponiendo el traceback real al cliente. Nunca se expone
+        `str(exc)` en la respuesta -- puede contener detalles internos
+        (nombres de tabla, columnas, rutas)."""
+        logger.exception("Excepción no controlada en %s %s", request.method, request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "Error interno del servidor"})

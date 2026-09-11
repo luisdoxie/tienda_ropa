@@ -122,6 +122,15 @@ def test_crear_reserva_franja_fuera_de_horario_falla(client, cliente_headers, co
     assert respuesta.status_code == 400
 
 
+def test_crear_reserva_rango_horario_invertido_falla(client, cliente_headers, contexto):
+    respuesta = client.post(
+        "/api/v1/reservas",
+        json=_payload_reserva(contexto, hora_desde="18:00:00", hora_hasta="09:00:00"),
+        headers=cliente_headers,
+    )
+    assert respuesta.status_code == 400
+
+
 def test_crear_reserva_dia_sin_horario_configurado_falla(client, cliente_headers, contexto):
     payload = _payload_reserva(contexto)
     # Un día distinto al miércoles configurado en el fixture.

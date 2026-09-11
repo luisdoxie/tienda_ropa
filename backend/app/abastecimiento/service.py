@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.abastecimiento.models import OrdenCompra, OrdenCompraDetalle, Proveedor, Recepcion, RecepcionDetalle
+from app.abastecimiento.models import OrdenCompra, OrdenCompraDetalle, Proveedor, ProductoProveedor, Recepcion, RecepcionDetalle
 from app.abastecimiento.repository import (
     OrdenCompraRepository,
     ProductoProveedorRepository,
@@ -17,10 +17,12 @@ from app.abastecimiento.repository import (
 from app.abastecimiento.schemas import (
     OrdenCompraActualizar,
     OrdenCompraCrear,
+    ProveedorActualizar,
     ProveedorCrear,
     RecepcionCrear,
 )
 from app.catalogo import service as catalogo_service
+from app.core.deps import ParametrosPaginacion
 from app.core.exceptions import ConflictoError, DomainError
 from app.inventario import service as inventario_service
 from app.organizacion import service as organizacion_service
@@ -32,6 +34,31 @@ recepcion_repo = RecepcionRepository()
 
 
 # ---- Proveedores --------------------------------------------------------------
+
+
+def listar_proveedores(db: Session, paginacion: ParametrosPaginacion) -> list[Proveedor]:
+    return list(proveedor_repo.listar(db, paginacion))
+
+
+def obtener_proveedor(db: Session, proveedor_id: int) -> Proveedor:
+    return proveedor_repo.obtener(db, proveedor_id)
+
+
+def crear_proveedor(db: Session, datos: ProveedorCrear) -> Proveedor:
+    return proveedor_repo.crear(db, datos)
+
+
+def actualizar_proveedor(db: Session, proveedor_id: int, datos: ProveedorActualizar) -> Proveedor:
+    return proveedor_repo.actualizar(db, proveedor_id, datos)
+
+
+def desactivar_proveedor(db: Session, proveedor_id: int) -> Proveedor:
+    return proveedor_repo.desactivar(db, proveedor_id)
+
+
+def listar_productos_proveedor(db: Session, proveedor_id: int) -> list[ProductoProveedor]:
+    proveedor_repo.obtener(db, proveedor_id)  # 404 si no existe / está inactivo
+    return list(producto_proveedor_repo.listar_por_proveedor(db, proveedor_id))
 
 
 def agregar_producto_proveedor(

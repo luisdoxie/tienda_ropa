@@ -18,6 +18,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.deps import ParametrosPaginacion
 from app.core.exceptions import ConflictoError, DomainError, NoEncontradoError
 from app.entregas.models import DireccionCliente, Envio, ZonaEnvio
 from app.entregas.repository import DireccionClienteRepository, EnvioRepository, ZonaEnvioRepository
@@ -28,6 +29,8 @@ from app.entregas.schemas import (
     DireccionClienteCrear,
     EnvioCrear,
     EnvioEstadoActualizar,
+    ZonaEnvioActualizar,
+    ZonaEnvioCrear,
 )
 from app.seguridad import service as seguridad_service
 from app.ventas import service as ventas_service
@@ -35,6 +38,29 @@ from app.ventas import service as ventas_service
 zona_repo = ZonaEnvioRepository()
 direccion_repo = DireccionClienteRepository()
 envio_repo = EnvioRepository()
+
+
+# ---- Zonas de envío -------------------------------------------------------------
+
+
+def listar_zonas(db: Session, paginacion: ParametrosPaginacion) -> list[ZonaEnvio]:
+    return list(zona_repo.listar(db, paginacion))
+
+
+def obtener_zona(db: Session, zona_id: int) -> ZonaEnvio:
+    return zona_repo.obtener(db, zona_id)
+
+
+def crear_zona(db: Session, datos: ZonaEnvioCrear) -> ZonaEnvio:
+    return zona_repo.crear(db, datos)
+
+
+def actualizar_zona(db: Session, zona_id: int, datos: ZonaEnvioActualizar) -> ZonaEnvio:
+    return zona_repo.actualizar(db, zona_id, datos)
+
+
+def desactivar_zona(db: Session, zona_id: int) -> ZonaEnvio:
+    return zona_repo.desactivar(db, zona_id)
 
 # programado -> en_ruta -> entregado | fallido. 'entregado' y 'fallido' son
 # terminales: un envío que ya llegó (o falló) no vuelve a moverse de ahí.

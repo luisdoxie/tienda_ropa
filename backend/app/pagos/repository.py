@@ -39,6 +39,21 @@ class PagoRepository:
             raise NoEncontradoError("Pago no encontrado")
         return pago
 
+    def obtener_bloqueado(self, db: Session, pago_id: int) -> Pago:
+        """Igual que obtener(), pero con SELECT FOR UPDATE (Postgres) y
+        populate_existing=True: si otra transacción concurrente ya resolvió
+        este pago y comiteó mientras esta esperaba el lock, refresca el
+        `estado_id` en memoria en vez de operar sobre el valor viejo leído
+        antes del lock. Mismo patrón que
+        inventario.repository.StockRepository.obtener_o_crear_bloqueado."""
+        consulta = select(Pago).where(Pago.id == pago_id)
+        if db.get_bind().dialect.name == "postgresql":
+            consulta = consulta.with_for_update()
+        pago = db.scalars(consulta.execution_options(populate_existing=True)).one_or_none()
+        if pago is None:
+            raise NoEncontradoError("Pago no encontrado")
+        return pago
+
     def listar_por_venta(self, db: Session, venta_id: int) -> list[Pago]:
         return list(db.scalars(select(Pago).where(Pago.venta_id == venta_id).order_by(Pago.fecha.desc())))
 

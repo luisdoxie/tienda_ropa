@@ -5,7 +5,6 @@ from app.core.database import get_db
 from app.core.deps import ParametrosPaginacion, parametros_paginacion
 from app.core.security import get_current_user, require_permission
 from app.entregas import service
-from app.entregas.repository import EnvioRepository, ZonaEnvioRepository
 from app.entregas.schemas import (
     CotizarEnvioRequest,
     CotizarEnvioRespuesta,
@@ -19,9 +18,6 @@ from app.entregas.schemas import (
     ZonaEnvioCrear,
     ZonaEnvioRespuesta,
 )
-
-zona_repo = ZonaEnvioRepository()
-envio_repo = EnvioRepository()
 
 PERMISO_GESTIONAR = "entregas.gestionar"
 PERMISO_DIGITAL = "ventas.digital"
@@ -41,27 +37,27 @@ zonas_router = APIRouter(prefix="/api/v1/zonas-envio", tags=["zonas-envio"])
 def listar_zonas(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[ZonaEnvioRespuesta]:
-    return list(zona_repo.listar(db, paginacion))
+    return service.listar_zonas(db, paginacion)
 
 
 @zonas_router.get("/{zona_id}", response_model=ZonaEnvioRespuesta)
 def obtener_zona(zona_id: int, db: Session = Depends(get_db)) -> ZonaEnvioRespuesta:
-    return zona_repo.obtener(db, zona_id)
+    return service.obtener_zona(db, zona_id)
 
 
 @zonas_router.post("", response_model=ZonaEnvioRespuesta, status_code=status.HTTP_201_CREATED, dependencies=[gestionar_requerido])
 def crear_zona(datos: ZonaEnvioCrear, db: Session = Depends(get_db)) -> ZonaEnvioRespuesta:
-    return zona_repo.crear(db, datos)
+    return service.crear_zona(db, datos)
 
 
 @zonas_router.put("/{zona_id}", response_model=ZonaEnvioRespuesta, dependencies=[gestionar_requerido])
 def actualizar_zona(zona_id: int, datos: ZonaEnvioActualizar, db: Session = Depends(get_db)) -> ZonaEnvioRespuesta:
-    return zona_repo.actualizar(db, zona_id, datos)
+    return service.actualizar_zona(db, zona_id, datos)
 
 
 @zonas_router.delete("/{zona_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[gestionar_requerido])
 def desactivar_zona(zona_id: int, db: Session = Depends(get_db)) -> None:
-    zona_repo.desactivar(db, zona_id)
+    service.desactivar_zona(db, zona_id)
 
 
 # ---- /api/v1/clientes/direcciones ---------------------------------------------

@@ -1,21 +1,26 @@
 """Hash de contraseñas, JWT y dependencias de autenticación/autorización.
 
-Vive en `core` (así lo pide el plan de desarrollo), pero para verificar
-permisos necesita consultar las tablas del paquete `seguridad`. Los modelos
-se importan de forma diferida dentro de las funciones para dejar explícita
-esa dependencia hacia arriba, que es la única excepción a la regla de
-paquetes de CLAUDE.md.
+Vive en `core` (así lo pide el plan de desarrollo), pero para resolver el
+usuario/los permisos detrás de un JWT necesita al paquete `seguridad`
+(dueño de esas tablas). En vez de consultar `usuario`/`rol_permiso`/
+`usuario_rol` directamente, llama a `seguridad.service` -- mismo patrón que
+CLAUDE.md pide entre los 13 paquetes de negocio ("llama al service del otro
+paquete, no consulta sus tablas"). El import es diferido (dentro de cada
+función) porque `seguridad.service` importa `core.security` a nivel de
+módulo (para crear_access_token/decodificar_token/etc.): con el import acá
+arriba, cargar cualquiera de los dos módulos primero rompería con un
+ImportError circular.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import hmac
 
 import bcrypt
 import jwt
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -74,25 +79,20 @@ def decodificar_token(token: str) -> dict:
 
 
 def permisos_de_usuario(db: Session, usuario_id: int) -> list[str]:
-    """Códigos de permiso reales del usuario, vía sus roles activos."""
-    from app.seguridad.models import Permiso, Rol, rol_permiso, usuario_rol
+    """Códigos de permiso reales del usuario, vía sus roles activos. La
+    consulta real vive en seguridad.service (dueño de esas tablas); acá
+    solo se reexpone con el mismo nombre para no obligar a los demás
+    paquetes a cambiar su import."""
+    from app.seguridad import service as seguridad_service
 
-    filas = db.execute(
-        select(Permiso.codigo)
-        .join(rol_permiso, rol_permiso.c.permiso_id == Permiso.id)
-        .join(Rol, Rol.id == rol_permiso.c.rol_id)
-        .join(usuario_rol, usuario_rol.c.rol_id == Rol.id)
-        .where(usuario_rol.c.usuario_id == usuario_id, Rol.activo.is_(True))
-        .distinct()
-    ).scalars()
-    return list(filas)
+    return seguridad_service.permisos_de_usuario(db, usuario_id)
 
 
 def get_current_user(
     credenciales: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
     db: Session = Depends(get_db),
 ):
-    from app.seguridad.models import Usuario
+    from app.seguridad import service as seguridad_service
 
     if credenciales is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autenticado")
@@ -101,8 +101,8 @@ def get_current_user(
     if payload.get("tipo") != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
 
-    usuario = db.get(Usuario, int(payload["sub"]))
-    if usuario is None or not usuario.activo:
+    usuario = seguridad_service.obtener_usuario_para_auth(db, int(payload["sub"]))
+    if usuario is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inválido")
     return usuario
 
@@ -115,7 +115,7 @@ def get_current_user_opcional(
     hay token o es inválido/expirado. Para endpoints públicos que igual
     quieren asociar la acción a un usuario logueado cuando lo hay (p. ej.
     POST /ia/voz, que admite búsqueda anónima)."""
-    from app.seguridad.models import Usuario
+    from app.seguridad import service as seguridad_service
 
     if credenciales is None:
         return None
@@ -125,10 +125,7 @@ def get_current_user_opcional(
         return None
     if payload.get("tipo") != "access":
         return None
-    usuario = db.get(Usuario, int(payload["sub"]))
-    if usuario is None or not usuario.activo:
-        return None
-    return usuario
+    return seguridad_service.obtener_usuario_para_auth(db, int(payload["sub"]))
 
 
 def require_permission(codigo: str):
@@ -152,5 +149,5 @@ def require_service_token(x_service_token: str | None = Header(default=None)) ->
     compartido, configurado por variable de entorno (TAREAS_TOKEN). Si no
     está configurado, la tarea queda inhabilitada (nunca compara contra
     una cadena vacía)."""
-    if not settings.tareas_token or x_service_token != settings.tareas_token:
+    if not settings.tareas_token or not x_service_token or not hmac.compare_digest(x_service_token, settings.tareas_token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de servicio inválido")

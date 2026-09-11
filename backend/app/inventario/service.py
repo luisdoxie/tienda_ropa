@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.catalogo import service as catalogo_service
 from app.core.exceptions import ConflictoError, DomainError, NoEncontradoError
 from app.inventario import repository as inventario_repo
-from app.inventario.models import MovimientoInventario, Stock, Transferencia, TransferenciaDetalle
+from app.inventario.models import MovimientoInventario, Stock, Transferencia, TransferenciaDetalle, TipoMovimiento
 from app.inventario.repository import (
     MovimientoRepository,
     StockRepository,
@@ -28,6 +28,16 @@ tipo_movimiento_repo = TipoMovimientoRepository()
 transferencia_repo = TransferenciaRepository()
 
 _CUATRO_DECIMALES = Decimal("0.0001")
+
+
+def listar_tipos_movimiento(db: Session) -> list[TipoMovimiento]:
+    return tipo_movimiento_repo.listar(db)
+
+
+def mapa_codigos_tipo_movimiento(db: Session) -> dict[int, str]:
+    """Para que el router arme MovimientoRespuesta sin consultar
+    `tipo_movimiento` directamente al listar el kardex."""
+    return {tipo.id: tipo.codigo for tipo in tipo_movimiento_repo.listar(db)}
 
 
 def registrar_movimiento(

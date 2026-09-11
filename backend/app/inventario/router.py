@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
 from app.inventario import service
-from app.inventario.repository import TipoMovimientoRepository
 from app.inventario.schemas import (
     AjusteCrear,
     ConsolidadoRespuesta,
@@ -20,16 +19,10 @@ from app.inventario.schemas import (
     ValuacionRespuesta,
 )
 
-tipo_movimiento_repo = TipoMovimientoRepository()
-
 PERMISO_VER = "inventario.ver"
 PERMISO_GESTIONAR = "inventario.gestionar"
 ver_requerido = Depends(require_permission(PERMISO_VER))
 gestionar_requerido = Depends(require_permission(PERMISO_GESTIONAR))
-
-
-def _codigos_tipo_movimiento(db: Session) -> dict[int, str]:
-    return {tipo.id: tipo.codigo for tipo in tipo_movimiento_repo.listar(db)}
 
 
 # ---- /api/v1/inventario/disponibilidad (público) -----------------------------
@@ -56,7 +49,7 @@ router = APIRouter(prefix="/api/v1/inventario", tags=["inventario"], dependencie
 
 @router.get("/tipos-movimiento", response_model=list[TipoMovimientoRespuesta])
 def listar_tipos_movimiento(db: Session = Depends(get_db)) -> list[TipoMovimientoRespuesta]:
-    return list(tipo_movimiento_repo.listar(db))
+    return list(service.listar_tipos_movimiento(db))
 
 
 @router.get("/consolidado", response_model=list[ConsolidadoRespuesta])
@@ -111,7 +104,7 @@ def listar_kardex(
     variante_id: int = Query(...), sucursal_id: int = Query(...), db: Session = Depends(get_db)
 ) -> list[MovimientoRespuesta]:
     movimientos = service.listar_kardex(db, variante_id, sucursal_id)
-    codigos = _codigos_tipo_movimiento(db)
+    codigos = service.mapa_codigos_tipo_movimiento(db)
     return [MovimientoRespuesta.from_modelo(m, codigos[m.tipo_movimiento_id]) for m in movimientos]
 
 
@@ -136,8 +129,10 @@ def registrar_movimiento(
         usuario_id=usuario.id,
         observacion=datos.observacion,
     )
-    tipo = tipo_movimiento_repo.obtener_por_codigo(db, datos.tipo_movimiento_codigo)
-    return MovimientoRespuesta.from_modelo(movimiento, tipo.codigo)
+    # service.registrar_movimiento ya validó que el código exista (si no,
+    # hubiera lanzado antes de llegar acá): se reusa el mismo valor en vez
+    # de volver a consultar `tipo_movimiento` desde el router.
+    return MovimientoRespuesta.from_modelo(movimiento, datos.tipo_movimiento_codigo)
 
 
 @router.post("/reservas", response_model=StockRespuesta, dependencies=[gestionar_requerido])

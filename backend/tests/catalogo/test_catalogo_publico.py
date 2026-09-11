@@ -173,14 +173,16 @@ def test_buscar_variante_por_codigo_de_barras_exacto(client, admin_headers, cate
     )
     assert asignado.status_code == 200
 
-    resultados = client.get("/api/v1/catalogo/variantes/buscar?q=7591234567890").json()
+    resultados = client.get(
+        "/api/v1/catalogo/variantes/buscar?q=7591234567890", headers=admin_headers
+    ).json()
     assert len(resultados) == 1
     assert resultados[0]["variante_id"] == variante["id"]
     assert resultados[0]["producto_nombre"] == "Camisa de lino"
     assert resultados[0]["precio_efectivo"] == "150.00"
 
 
-def test_buscar_variante_por_nombre_no_requiere_auth(client, admin_headers, categoria_camisas, tallas, colores):
+def test_buscar_variante_por_nombre_requiere_catalogo_ver(client, admin_headers, categoria_camisas, tallas, colores):
     _crear_producto(
         client,
         admin_headers,
@@ -190,9 +192,32 @@ def test_buscar_variante_por_nombre_no_requiere_auth(client, admin_headers, cate
         "POS-2",
         nombre="Chamarra de cuero",
     )
-    # Sin headers: es el mismo router público que /catalogo/buscar.
-    resultados = client.get("/api/v1/catalogo/variantes/buscar?q=chamarra").json()
+    # Sin token: esta búsqueda es para la caja (POS), no público como
+    # /catalogo/buscar -- exige el permiso catalogo.ver del cajero (B-6).
+    sin_auth = client.get("/api/v1/catalogo/variantes/buscar?q=chamarra")
+    assert sin_auth.status_code == 401
+
+    resultados = client.get(
+        "/api/v1/catalogo/variantes/buscar?q=chamarra", headers=admin_headers
+    ).json()
     assert any(r["producto_codigo"] == "POS-2" for r in resultados)
+
+
+def test_detalle_para_dashboard_requiere_sesion(client, admin_headers, categoria_camisas, tallas, colores):
+    producto = _crear_producto(
+        client, admin_headers, categoria_camisas["id"], [tallas[0]["id"]], [colores[0]["id"]], "POS-4"
+    )
+    variante = _primera_variante(client, admin_headers, producto["id"])
+
+    # Sin token: puede mostrar productos inactivos (B-6), así que no queda
+    # público -- exige cualquier usuario logueado (staff o cliente).
+    sin_auth = client.get(f"/api/v1/catalogo/variantes/detalle?variante_ids={variante['id']}")
+    assert sin_auth.status_code == 401
+
+    resultados = client.get(
+        f"/api/v1/catalogo/variantes/detalle?variante_ids={variante['id']}", headers=admin_headers
+    ).json()
+    assert any(r["variante_id"] == variante["id"] for r in resultados)
 
 
 def test_codigo_de_barras_duplicado_es_rechazado(client, admin_headers, categoria_camisas, tallas, colores):

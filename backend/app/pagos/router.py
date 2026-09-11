@@ -4,8 +4,6 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
 from app.pagos import service
-from app.pagos.models import MetodoPago
-from app.pagos.repository import EstadoPagoRepository
 from app.pagos.schemas import (
     PagoCajaRequest,
     PagoCajaRespuesta,
@@ -14,24 +12,12 @@ from app.pagos.schemas import (
     PagoRespuesta,
 )
 
-estado_repo = EstadoPagoRepository()
-
 PERMISO_GESTIONAR = "pagos.gestionar"
 gestionar_requerido = Depends(require_permission(PERMISO_GESTIONAR))
 
 
 def _pago_respuesta(db: Session, pago) -> PagoRespuesta:
-    estado = estado_repo.obtener(db, pago.estado_id)
-    metodo = db.get(MetodoPago, pago.metodo_pago_id)
-    return PagoRespuesta(
-        id=pago.id,
-        venta_id=pago.venta_id,
-        monto=pago.monto,
-        referencia_externa=pago.referencia_externa,
-        fecha=pago.fecha,
-        metodo_pago=metodo.codigo if metodo else "",
-        estado=estado.codigo,
-    )
+    return service.construir_pago_respuesta(db, pago)
 
 
 router = APIRouter(prefix="/api/v1/pagos", tags=["pagos"])

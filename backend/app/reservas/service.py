@@ -93,6 +93,9 @@ def crear_reserva(db: Session, usuario_id: int, datos: ReservaCrear) -> Reserva:
     cliente = seguridad_service.obtener_perfil_cliente(db, usuario_id)
     organizacion_service.obtener_sucursal(db, datos.sucursal_id)  # 404 si no existe
 
+    if datos.hora_visita_desde >= datos.hora_visita_hasta:
+        raise DomainError("hora_visita_desde debe ser anterior a hora_visita_hasta")
+
     # dia_semana: 1=lunes ... 7=domingo (date.isoweekday()), igual que se
     # pide al crear un horario_sucursal.
     dia_semana = datos.fecha_visita.isoweekday()
@@ -156,6 +159,12 @@ def crear_reserva(db: Session, usuario_id: int, datos: ReservaCrear) -> Reserva:
 
 
 # ---- Consultas ------------------------------------------------------------------
+
+
+def mapa_codigos_estado(db: Session) -> dict[int, str]:
+    """Para que el router arme ReservaRespuesta sin consultar
+    `estado_reserva` directamente."""
+    return estado_repo.mapa_codigos_por_id(db)
 
 
 def obtener_reserva(db: Session, reserva_id: int, usuario_id: int) -> Reserva:

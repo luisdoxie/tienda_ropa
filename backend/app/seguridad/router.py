@@ -7,7 +7,6 @@ from app.core.deps import ParametrosPaginacion, parametros_paginacion
 from app.core.rate_limit import limiter
 from app.core.security import get_current_user, permisos_de_usuario, require_permission
 from app.seguridad import service
-from app.seguridad.repository import RolRepository, UsuarioRepository
 from app.seguridad.schemas import (
     AsignarPermisosRequest,
     AsignarRolesRequest,
@@ -28,9 +27,6 @@ from app.seguridad.schemas import (
     UsuarioRespuesta,
     UsuarioYoRespuesta,
 )
-
-rol_repo = RolRepository()
-usuario_repo = UsuarioRepository()
 
 PERMISO_ROLES = "roles.gestionar"
 PERMISO_USUARIOS = "usuarios.gestionar"
@@ -92,12 +88,12 @@ def listar_roles(
     db: Session = Depends(get_db),
     paginacion: ParametrosPaginacion = Depends(parametros_paginacion),
 ) -> list[RolRespuesta]:
-    return list(rol_repo.listar(db, paginacion))
+    return service.listar_roles(db, paginacion)
 
 
 @roles_router.get("/{rol_id}", response_model=RolRespuesta, dependencies=[Depends(require_permission(PERMISO_ROLES))])
 def obtener_rol(rol_id: int, db: Session = Depends(get_db)) -> RolRespuesta:
-    return rol_repo.obtener(db, rol_id)
+    return service.obtener_rol(db, rol_id)
 
 
 @roles_router.post(
@@ -105,12 +101,12 @@ def obtener_rol(rol_id: int, db: Session = Depends(get_db)) -> RolRespuesta:
     dependencies=[Depends(require_permission(PERMISO_ROLES))],
 )
 def crear_rol(datos: RolCrear, db: Session = Depends(get_db)) -> RolRespuesta:
-    return rol_repo.crear(db, datos)
+    return service.crear_rol(db, datos)
 
 
 @roles_router.put("/{rol_id}", response_model=RolRespuesta, dependencies=[Depends(require_permission(PERMISO_ROLES))])
 def actualizar_rol(rol_id: int, datos: RolActualizar, db: Session = Depends(get_db)) -> RolRespuesta:
-    return rol_repo.actualizar(db, rol_id, datos)
+    return service.actualizar_rol(db, rol_id, datos)
 
 
 @roles_router.delete(
@@ -118,7 +114,7 @@ def actualizar_rol(rol_id: int, datos: RolActualizar, db: Session = Depends(get_
     dependencies=[Depends(require_permission(PERMISO_ROLES))],
 )
 def desactivar_rol(rol_id: int, db: Session = Depends(get_db)) -> None:
-    rol_repo.desactivar(db, rol_id)
+    service.desactivar_rol(db, rol_id)
 
 
 @roles_router.put(
@@ -128,8 +124,7 @@ def desactivar_rol(rol_id: int, db: Session = Depends(get_db)) -> None:
 def asignar_permisos(
     rol_id: int, datos: AsignarPermisosRequest, db: Session = Depends(get_db)
 ) -> RolRespuesta:
-    rol = rol_repo.obtener(db, rol_id)
-    return rol_repo.asignar_permisos(db, rol, datos.codigos_permiso)
+    return service.asignar_permisos_rol(db, rol_id, datos.codigos_permiso)
 
 
 # ---- /api/v1/usuarios --------------------------------------------------------
@@ -145,7 +140,7 @@ def listar_usuarios(
     db: Session = Depends(get_db),
     paginacion: ParametrosPaginacion = Depends(parametros_paginacion),
 ) -> list[UsuarioRespuesta]:
-    usuarios = usuario_repo.listar(db, paginacion)
+    usuarios = service.listar_usuarios(db, paginacion)
     return [UsuarioRespuesta.from_modelo(u) for u in usuarios]
 
 
@@ -154,7 +149,7 @@ def listar_usuarios(
     dependencies=[Depends(require_permission(PERMISO_USUARIOS))],
 )
 def obtener_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioRespuesta:
-    return UsuarioRespuesta.from_modelo(usuario_repo.obtener(db, usuario_id))
+    return UsuarioRespuesta.from_modelo(service.obtener_usuario(db, usuario_id))
 
 
 @usuarios_router.post(
@@ -162,7 +157,7 @@ def obtener_usuario(usuario_id: int, db: Session = Depends(get_db)) -> UsuarioRe
     dependencies=[Depends(require_permission(PERMISO_USUARIOS))],
 )
 def crear_usuario(datos: UsuarioCrear, db: Session = Depends(get_db)) -> UsuarioRespuesta:
-    return UsuarioRespuesta.from_modelo(usuario_repo.crear(db, datos))
+    return UsuarioRespuesta.from_modelo(service.crear_usuario(db, datos))
 
 
 @usuarios_router.put(
@@ -172,7 +167,7 @@ def crear_usuario(datos: UsuarioCrear, db: Session = Depends(get_db)) -> Usuario
 def actualizar_usuario(
     usuario_id: int, datos: UsuarioActualizar, db: Session = Depends(get_db)
 ) -> UsuarioRespuesta:
-    return UsuarioRespuesta.from_modelo(usuario_repo.actualizar(db, usuario_id, datos))
+    return UsuarioRespuesta.from_modelo(service.actualizar_usuario(db, usuario_id, datos))
 
 
 @usuarios_router.delete(
@@ -180,7 +175,7 @@ def actualizar_usuario(
     dependencies=[Depends(require_permission(PERMISO_USUARIOS))],
 )
 def desactivar_usuario(usuario_id: int, db: Session = Depends(get_db)) -> None:
-    usuario_repo.desactivar(db, usuario_id)
+    service.desactivar_usuario(db, usuario_id)
 
 
 @usuarios_router.put(
@@ -190,8 +185,7 @@ def desactivar_usuario(usuario_id: int, db: Session = Depends(get_db)) -> None:
 def asignar_roles(
     usuario_id: int, datos: AsignarRolesRequest, db: Session = Depends(get_db)
 ) -> UsuarioRespuesta:
-    usuario = usuario_repo.obtener(db, usuario_id)
-    return UsuarioRespuesta.from_modelo(usuario_repo.asignar_roles(db, usuario, datos.nombres_rol))
+    return UsuarioRespuesta.from_modelo(service.asignar_roles_usuario(db, usuario_id, datos.nombres_rol))
 
 
 # ---- /api/v1/clientes/perfil --------------------------------------------------

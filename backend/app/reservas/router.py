@@ -4,10 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission, require_service_token
 from app.reservas import service
-from app.reservas.repository import EstadoReservaRepository
 from app.reservas.schemas import ReservaCrear, ReservaRespuesta, SeleccionActualizar
-
-estado_repo = EstadoReservaRepository()
 
 PERMISO_CREAR = "reservas.crear"
 PERMISO_STAFF = "reservas.gestionar_sucursal"
@@ -16,7 +13,7 @@ staff_requerido = Depends(require_permission(PERMISO_STAFF))
 
 
 def _respuesta(db: Session, reserva) -> ReservaRespuesta:
-    return ReservaRespuesta.from_modelo(reserva, estado_repo.mapa_codigos_por_id(db))
+    return ReservaRespuesta.from_modelo(reserva, service.mapa_codigos_estado(db))
 
 
 router = APIRouter(prefix="/api/v1/reservas", tags=["reservas"])
@@ -32,13 +29,13 @@ def crear_reserva(
 
 @router.get("/mis-reservas", response_model=list[ReservaRespuesta], dependencies=[crear_requerido])
 def listar_mis_reservas(usuario=Depends(get_current_user), db: Session = Depends(get_db)) -> list[ReservaRespuesta]:
-    estados = estado_repo.mapa_codigos_por_id(db)
+    estados = service.mapa_codigos_estado(db)
     return [ReservaRespuesta.from_modelo(r, estados) for r in service.listar_mis_reservas(db, usuario.id)]
 
 
 @router.get("/sucursal/{sucursal_id}", response_model=list[ReservaRespuesta], dependencies=[staff_requerido])
 def listar_reservas_sucursal(sucursal_id: int, db: Session = Depends(get_db)) -> list[ReservaRespuesta]:
-    estados = estado_repo.mapa_codigos_por_id(db)
+    estados = service.mapa_codigos_estado(db)
     return [ReservaRespuesta.from_modelo(r, estados) for r in service.listar_reservas_sucursal(db, sucursal_id)]
 
 

@@ -39,16 +39,23 @@ from app.catalogo.schemas import (
     CatalogoItemRespuesta,
     ColeccionActualizar,
     ColeccionCrear,
+    ColorActualizar,
+    ColorCrear,
     FavoritoRespuesta,
     FiltrosCatalogo,
     Genero,
     ImagenRespuesta,
+    MaterialActualizar,
+    MaterialCrear,
     ProductoActualizar,
     ProductoCrear,
     ProductoImagenLookupItem,
     TablaMedidaActualizar,
     TablaMedidaCrear,
+    TallaActualizar,
+    TallaCrear,
     TemporadaActualizar,
+    TemporadaCrear,
     ValoresReferenciaCatalogo,
     VarianteActualizar,
     VarianteCatalogoRespuesta,
@@ -104,6 +111,14 @@ def _validar_padre(db: Session, categoria_id: int | None, categoria_padre_id: in
         raise DomainError("Una categoría no puede ser su propio padre ni crear un ciclo")
 
 
+def listar_categorias(db: Session, paginacion: ParametrosPaginacion) -> list[Categoria]:
+    return list(categoria_repo.listar(db, paginacion))
+
+
+def obtener_categoria(db: Session, categoria_id: int) -> Categoria:
+    return categoria_repo.obtener(db, categoria_id)
+
+
 def crear_categoria(db: Session, datos: CategoriaCrear) -> Categoria:
     _validar_padre(db, None, datos.categoria_padre_id)
     return categoria_repo.crear(db, datos)
@@ -126,6 +141,86 @@ def desactivar_categoria(db: Session, categoria_id: int) -> Categoria:
     return categoria_repo.desactivar(db, categoria_id)
 
 
+# ---- Tallas / colores / materiales -------------------------------------------
+# Sin columna `activo` (CRUDBaseSinActivo): se eliminan físicamente, igual
+# que horario_sucursal/producto_imagen.
+
+
+def listar_tallas(db: Session, paginacion: ParametrosPaginacion) -> list[Talla]:
+    return list(talla_repo.listar(db, paginacion))
+
+
+def crear_talla(db: Session, datos: TallaCrear) -> Talla:
+    return talla_repo.crear(db, datos)
+
+
+def actualizar_talla(db: Session, talla_id: int, datos: TallaActualizar) -> Talla:
+    return talla_repo.actualizar(db, talla_id, datos)
+
+
+def eliminar_talla(db: Session, talla_id: int) -> None:
+    talla_repo.eliminar(db, talla_id)
+
+
+def listar_colores(db: Session, paginacion: ParametrosPaginacion) -> list[Color]:
+    return list(color_repo.listar(db, paginacion))
+
+
+def obtener_color(db: Session, color_id: int) -> Color:
+    return color_repo.obtener(db, color_id)
+
+
+def crear_color(db: Session, datos: ColorCrear) -> Color:
+    return color_repo.crear(db, datos)
+
+
+def actualizar_color(db: Session, color_id: int, datos: ColorActualizar) -> Color:
+    return color_repo.actualizar(db, color_id, datos)
+
+
+def eliminar_color(db: Session, color_id: int) -> None:
+    color_repo.eliminar(db, color_id)
+
+
+def listar_materiales(db: Session, paginacion: ParametrosPaginacion) -> list[Material]:
+    return list(material_repo.listar(db, paginacion))
+
+
+def obtener_material(db: Session, material_id: int) -> Material:
+    return material_repo.obtener(db, material_id)
+
+
+def crear_material(db: Session, datos: MaterialCrear) -> Material:
+    return material_repo.crear(db, datos)
+
+
+def actualizar_material(db: Session, material_id: int, datos: MaterialActualizar) -> Material:
+    return material_repo.actualizar(db, material_id, datos)
+
+
+def eliminar_material(db: Session, material_id: int) -> None:
+    material_repo.eliminar(db, material_id)
+
+
+# ---- Temporadas y colecciones -------------------------------------------------
+
+
+def listar_temporadas(db: Session, paginacion: ParametrosPaginacion) -> list[Temporada]:
+    return list(temporada_repo.listar(db, paginacion))
+
+
+def obtener_temporada(db: Session, temporada_id: int) -> Temporada:
+    return temporada_repo.obtener(db, temporada_id)
+
+
+def crear_temporada(db: Session, datos: TemporadaCrear) -> Temporada:
+    return temporada_repo.crear(db, datos)
+
+
+def desactivar_temporada(db: Session, temporada_id: int) -> Temporada:
+    return temporada_repo.desactivar(db, temporada_id)
+
+
 def actualizar_temporada(db: Session, temporada_id: int, datos: TemporadaActualizar) -> Temporada:
     temporada = temporada_repo.obtener(db, temporada_id)
     inicio = datos.fecha_inicio if "fecha_inicio" in datos.model_fields_set else temporada.fecha_inicio
@@ -133,6 +228,14 @@ def actualizar_temporada(db: Session, temporada_id: int, datos: TemporadaActuali
     if inicio and fin and fin <= inicio:
         raise DomainError("fecha_fin debe ser posterior a fecha_inicio")
     return temporada_repo.actualizar(db, temporada_id, datos)
+
+
+def listar_colecciones(db: Session, paginacion: ParametrosPaginacion) -> list[Coleccion]:
+    return list(coleccion_repo.listar(db, paginacion))
+
+
+def obtener_coleccion(db: Session, coleccion_id: int) -> Coleccion:
+    return coleccion_repo.obtener(db, coleccion_id)
 
 
 def crear_coleccion(db: Session, datos: ColeccionCrear) -> Coleccion:
@@ -145,6 +248,10 @@ def actualizar_coleccion(db: Session, coleccion_id: int, datos: ColeccionActuali
     if datos.temporada_id is not None:
         temporada_repo.obtener(db, datos.temporada_id)
     return coleccion_repo.actualizar(db, coleccion_id, datos)
+
+
+def desactivar_coleccion(db: Session, coleccion_id: int) -> Coleccion:
+    return coleccion_repo.desactivar(db, coleccion_id)
 
 
 # ---- Producto y variantes ---------------------------------------------------
@@ -184,6 +291,14 @@ def _validar_referencias_producto(
         temporada_repo.obtener(db, temporada_id)
     if coleccion_id is not None:
         coleccion_repo.obtener(db, coleccion_id)
+
+
+def listar_productos(db: Session, paginacion: ParametrosPaginacion) -> list[Producto]:
+    return list(producto_repo.listar(db, paginacion))
+
+
+def desactivar_producto(db: Session, producto_id: int) -> Producto:
+    return producto_repo.desactivar(db, producto_id)
 
 
 def crear_producto(db: Session, datos: ProductoCrear, creado_por: int | None) -> Producto:
@@ -277,6 +392,17 @@ def agregar_variantes(db: Session, producto_id: int, datos: VariantesGenerarRequ
     return generar_variantes(db, producto, datos.tallas_ids, datos.colores_ids)
 
 
+def listar_variantes_producto(db: Session, producto_id: int) -> list[ProductoVariante]:
+    producto_repo.obtener(db, producto_id)  # 404 si no existe
+    return variante_repo.listar_por_producto(db, producto_id)
+
+
+def buscar_variantes_para_venta(
+    db: Session, texto: str
+) -> list[tuple[ProductoVariante, Producto, Talla, Color]]:
+    return variante_repo.buscar_para_venta(db, texto)
+
+
 def actualizar_variante(db: Session, variante_id: int, datos: VarianteActualizar) -> ProductoVariante:
     if datos.codigo_barras is not None:
         existente = variante_repo.obtener_por_codigo_barras(db, datos.codigo_barras)
@@ -299,6 +425,11 @@ def desactivar_variante(db: Session, variante_id: int) -> ProductoVariante:
 # ---- Tabla de medidas ---------------------------------------------------------
 
 
+def listar_medidas_producto(db: Session, producto_id: int) -> list[TablaMedida]:
+    producto_repo.obtener(db, producto_id)  # 404 si no existe
+    return list(medida_repo.listar_por_producto(db, producto_id))
+
+
 def crear_medida(db: Session, producto_id: int, datos: TablaMedidaCrear) -> TablaMedida:
     producto_repo.obtener(db, producto_id)
     talla_repo.obtener(db, datos.talla_id)
@@ -309,6 +440,10 @@ def actualizar_medida(db: Session, producto_id: int, medida_id: int, datos: Tabl
     if datos.talla_id is not None:
         talla_repo.obtener(db, datos.talla_id)
     return medida_repo.actualizar(db, producto_id, medida_id, datos)
+
+
+def eliminar_medida(db: Session, producto_id: int, medida_id: int) -> None:
+    medida_repo.eliminar(db, producto_id, medida_id)
 
 
 # ---- Imágenes de producto ------------------------------------------------------

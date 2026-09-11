@@ -5,7 +5,6 @@ from app.core.database import get_db
 from app.core.deps import ParametrosPaginacion, parametros_paginacion
 from app.core.security import get_current_user, require_permission
 from app.ventas import service
-from app.ventas.repository import EstadoVentaRepository
 from app.ventas.schemas import (
     CarritoDetalleActualizar,
     CarritoDetalleCrear,
@@ -21,8 +20,6 @@ from app.ventas.schemas import (
     VentaRespuesta,
 )
 
-estado_repo = EstadoVentaRepository()
-
 PERMISO_DIGITAL = "ventas.digital"
 PERMISO_PRESENCIAL = "ventas.presencial"
 PERMISO_STAFF = "ventas.gestionar_sucursal"
@@ -35,7 +32,7 @@ gestionar_requerido = Depends(require_permission(PERMISO_GESTIONAR))
 
 
 def _venta_respuesta(db: Session, venta) -> VentaRespuesta:
-    return VentaRespuesta.from_modelo(venta, estado_repo.mapa_codigos_por_id(db))
+    return VentaRespuesta.from_modelo(venta, service.mapa_codigos_estado(db))
 
 
 # ---- /api/v1/carrito ---------------------------------------------------------------
@@ -107,13 +104,13 @@ def registrar_venta_presencial(
 
 @ventas_router.get("/mis-compras", response_model=list[VentaRespuesta])
 def listar_mis_compras(usuario=Depends(get_current_user), db: Session = Depends(get_db)) -> list[VentaRespuesta]:
-    estados = estado_repo.mapa_codigos_por_id(db)
+    estados = service.mapa_codigos_estado(db)
     return [VentaRespuesta.from_modelo(v, estados) for v in service.listar_mis_compras(db, usuario.id)]
 
 
 @ventas_router.get("/sucursal/{sucursal_id}", response_model=list[VentaRespuesta], dependencies=[staff_requerido])
 def listar_ventas_sucursal(sucursal_id: int, db: Session = Depends(get_db)) -> list[VentaRespuesta]:
-    estados = estado_repo.mapa_codigos_por_id(db)
+    estados = service.mapa_codigos_estado(db)
     return [VentaRespuesta.from_modelo(v, estados) for v in service.listar_ventas_sucursal(db, sucursal_id)]
 
 

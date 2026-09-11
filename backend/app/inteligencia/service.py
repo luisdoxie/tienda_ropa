@@ -146,7 +146,14 @@ def _top_variantes(db: Session, cliente_id: int | None, candidatos: set[int]) ->
     vigente. Devuelve (top 20 ids, True si vino de historial real)."""
     puntajes: dict[int, float] = defaultdict(float)
     if cliente_id is not None:
-        ahora = dt.datetime.now()
+        # `evento.creado_en`/`sesion.creado_en` vienen de columnas TIMESTAMP
+        # WITHOUT TIME ZONE (server_default=func.now() en UTC): SQLAlchemy
+        # los devuelve como datetime naive que representan UTC. Restarles
+        # dt.datetime.now() (hora LOCAL del proceso, también naive) desfasa
+        # "antigüedad_dias" por el offset horario del servidor si no corre
+        # en UTC -- acá se arma un "ahora" naive pero en UTC, para restar
+        # naive contra naive de forma consistente (B-7 de la auditoría).
+        ahora = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
         for evento in historial_repo.listar_reciente_por_cliente(db, cliente_id, limite=100):
             if evento.variante_id is None or evento.variante_id not in candidatos:
                 continue

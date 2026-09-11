@@ -44,6 +44,11 @@ app = FastAPI(title="FashionStore API", version="0.1.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Punto donde el backend se abre a la web Angular: solo los orígenes
+# listados en settings.cors_origins (core/config.py) pueden llamar esta API
+# desde un navegador. El valor de la web debe apuntar a la misma base URL
+# que autoriza acá (ver web/src/environments/environment*.ts -> apiUrl).
+# La app Flutter no necesita estar en esta lista: CORS no aplica a Dio.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,

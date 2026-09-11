@@ -8,18 +8,6 @@ from app.core.deps import ParametrosPaginacion, parametros_paginacion
 from app.core.rate_limit import limiter
 from app.core.security import get_current_user, require_permission
 from app.catalogo import service
-from app.catalogo.repository import (
-    CategoriaRepository,
-    ColeccionRepository,
-    ColorRepository,
-    ImagenRepository,
-    MaterialRepository,
-    ProductoRepository,
-    TablaMedidaRepository,
-    TallaRepository,
-    TemporadaRepository,
-    VarianteRepository,
-)
 from app.catalogo.schemas import (
     CategoriaActualizar,
     CategoriaCrear,
@@ -59,18 +47,6 @@ from app.catalogo.schemas import (
     VariantesGenerarRequest,
 )
 
-categoria_repo = CategoriaRepository()
-talla_repo = TallaRepository()
-color_repo = ColorRepository()
-material_repo = MaterialRepository()
-temporada_repo = TemporadaRepository()
-coleccion_repo = ColeccionRepository()
-producto_repo = ProductoRepository()
-variante_repo = VarianteRepository()
-medida_repo = TablaMedidaRepository()
-imagen_repo = ImagenRepository()
-
-
 def paginacion_catalogo(
     pagina: int = Query(default=1, ge=1), tamanio: int = Query(default=20, ge=1, le=50)
 ) -> ParametrosPaginacion:
@@ -88,12 +64,12 @@ categorias_router = APIRouter(prefix="/api/v1/categorias", tags=["categorias"])
 def listar_categorias(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[CategoriaRespuesta]:
-    return list(categoria_repo.listar(db, paginacion))
+    return service.listar_categorias(db, paginacion)
 
 
 @categorias_router.get("/{categoria_id}", response_model=CategoriaRespuesta)
 def obtener_categoria(categoria_id: int, db: Session = Depends(get_db)) -> CategoriaRespuesta:
-    return categoria_repo.obtener(db, categoria_id)
+    return service.obtener_categoria(db, categoria_id)
 
 
 @categorias_router.post(
@@ -128,29 +104,29 @@ tallas_router = APIRouter(prefix="/api/v1/tallas", tags=["tallas"])
 def listar_tallas(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[TallaRespuesta]:
-    return list(talla_repo.listar(db, paginacion))
+    return service.listar_tallas(db, paginacion)
 
 
 @tallas_router.get("/{talla_id}", response_model=TallaRespuesta)
 def obtener_talla(talla_id: int, db: Session = Depends(get_db)) -> TallaRespuesta:
-    return talla_repo.obtener(db, talla_id)
+    return service.obtener_talla(db, talla_id)
 
 
 @tallas_router.post(
     "", response_model=TallaRespuesta, status_code=status.HTTP_201_CREATED, dependencies=[admin_requerido]
 )
 def crear_talla(datos: TallaCrear, db: Session = Depends(get_db)) -> TallaRespuesta:
-    return talla_repo.crear(db, datos)
+    return service.crear_talla(db, datos)
 
 
 @tallas_router.put("/{talla_id}", response_model=TallaRespuesta, dependencies=[admin_requerido])
 def actualizar_talla(talla_id: int, datos: TallaActualizar, db: Session = Depends(get_db)) -> TallaRespuesta:
-    return talla_repo.actualizar(db, talla_id, datos)
+    return service.actualizar_talla(db, talla_id, datos)
 
 
 @tallas_router.delete("/{talla_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[admin_requerido])
 def eliminar_talla(talla_id: int, db: Session = Depends(get_db)) -> None:
-    talla_repo.eliminar(db, talla_id)
+    service.eliminar_talla(db, talla_id)
 
 
 # ---- /api/v1/colores -------------------------------------------------------
@@ -162,29 +138,29 @@ colores_router = APIRouter(prefix="/api/v1/colores", tags=["colores"])
 def listar_colores(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[ColorRespuesta]:
-    return list(color_repo.listar(db, paginacion))
+    return service.listar_colores(db, paginacion)
 
 
 @colores_router.get("/{color_id}", response_model=ColorRespuesta)
 def obtener_color(color_id: int, db: Session = Depends(get_db)) -> ColorRespuesta:
-    return color_repo.obtener(db, color_id)
+    return service.obtener_color(db, color_id)
 
 
 @colores_router.post(
     "", response_model=ColorRespuesta, status_code=status.HTTP_201_CREATED, dependencies=[admin_requerido]
 )
 def crear_color(datos: ColorCrear, db: Session = Depends(get_db)) -> ColorRespuesta:
-    return color_repo.crear(db, datos)
+    return service.crear_color(db, datos)
 
 
 @colores_router.put("/{color_id}", response_model=ColorRespuesta, dependencies=[admin_requerido])
 def actualizar_color(color_id: int, datos: ColorActualizar, db: Session = Depends(get_db)) -> ColorRespuesta:
-    return color_repo.actualizar(db, color_id, datos)
+    return service.actualizar_color(db, color_id, datos)
 
 
 @colores_router.delete("/{color_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[admin_requerido])
 def eliminar_color(color_id: int, db: Session = Depends(get_db)) -> None:
-    color_repo.eliminar(db, color_id)
+    service.eliminar_color(db, color_id)
 
 
 # ---- /api/v1/materiales ---------------------------------------------------
@@ -196,19 +172,19 @@ materiales_router = APIRouter(prefix="/api/v1/materiales", tags=["materiales"])
 def listar_materiales(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[MaterialRespuesta]:
-    return list(material_repo.listar(db, paginacion))
+    return service.listar_materiales(db, paginacion)
 
 
 @materiales_router.get("/{material_id}", response_model=MaterialRespuesta)
 def obtener_material(material_id: int, db: Session = Depends(get_db)) -> MaterialRespuesta:
-    return material_repo.obtener(db, material_id)
+    return service.obtener_material(db, material_id)
 
 
 @materiales_router.post(
     "", response_model=MaterialRespuesta, status_code=status.HTTP_201_CREATED, dependencies=[admin_requerido]
 )
 def crear_material(datos: MaterialCrear, db: Session = Depends(get_db)) -> MaterialRespuesta:
-    return material_repo.crear(db, datos)
+    return service.crear_material(db, datos)
 
 
 @materiales_router.put(
@@ -217,14 +193,14 @@ def crear_material(datos: MaterialCrear, db: Session = Depends(get_db)) -> Mater
 def actualizar_material(
     material_id: int, datos: MaterialActualizar, db: Session = Depends(get_db)
 ) -> MaterialRespuesta:
-    return material_repo.actualizar(db, material_id, datos)
+    return service.actualizar_material(db, material_id, datos)
 
 
 @materiales_router.delete(
     "/{material_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[admin_requerido]
 )
 def eliminar_material(material_id: int, db: Session = Depends(get_db)) -> None:
-    material_repo.eliminar(db, material_id)
+    service.eliminar_material(db, material_id)
 
 
 # ---- /api/v1/temporadas ---------------------------------------------------
@@ -236,19 +212,19 @@ temporadas_router = APIRouter(prefix="/api/v1/temporadas", tags=["temporadas"])
 def listar_temporadas(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[TemporadaRespuesta]:
-    return list(temporada_repo.listar(db, paginacion))
+    return service.listar_temporadas(db, paginacion)
 
 
 @temporadas_router.get("/{temporada_id}", response_model=TemporadaRespuesta)
 def obtener_temporada(temporada_id: int, db: Session = Depends(get_db)) -> TemporadaRespuesta:
-    return temporada_repo.obtener(db, temporada_id)
+    return service.obtener_temporada(db, temporada_id)
 
 
 @temporadas_router.post(
     "", response_model=TemporadaRespuesta, status_code=status.HTTP_201_CREATED, dependencies=[admin_requerido]
 )
 def crear_temporada(datos: TemporadaCrear, db: Session = Depends(get_db)) -> TemporadaRespuesta:
-    return temporada_repo.crear(db, datos)
+    return service.crear_temporada(db, datos)
 
 
 @temporadas_router.put(
@@ -264,7 +240,7 @@ def actualizar_temporada(
     "/{temporada_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[admin_requerido]
 )
 def desactivar_temporada(temporada_id: int, db: Session = Depends(get_db)) -> None:
-    temporada_repo.desactivar(db, temporada_id)
+    service.desactivar_temporada(db, temporada_id)
 
 
 # ---- /api/v1/colecciones ---------------------------------------------------
@@ -276,12 +252,12 @@ colecciones_router = APIRouter(prefix="/api/v1/colecciones", tags=["colecciones"
 def listar_colecciones(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[ColeccionRespuesta]:
-    return list(coleccion_repo.listar(db, paginacion))
+    return service.listar_colecciones(db, paginacion)
 
 
 @colecciones_router.get("/{coleccion_id}", response_model=ColeccionRespuesta)
 def obtener_coleccion(coleccion_id: int, db: Session = Depends(get_db)) -> ColeccionRespuesta:
-    return coleccion_repo.obtener(db, coleccion_id)
+    return service.obtener_coleccion(db, coleccion_id)
 
 
 @colecciones_router.post(
@@ -304,7 +280,7 @@ def actualizar_coleccion(
     "/{coleccion_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[admin_requerido]
 )
 def desactivar_coleccion(coleccion_id: int, db: Session = Depends(get_db)) -> None:
-    coleccion_repo.desactivar(db, coleccion_id)
+    service.desactivar_coleccion(db, coleccion_id)
 
 
 # ---- /api/v1/productos -----------------------------------------------------
@@ -319,12 +295,12 @@ productos_router = APIRouter(prefix="/api/v1/productos", tags=["productos"], dep
 def listar_productos(
     db: Session = Depends(get_db), paginacion: ParametrosPaginacion = Depends(parametros_paginacion)
 ) -> list[ProductoRespuesta]:
-    return list(producto_repo.listar(db, paginacion))
+    return service.listar_productos(db, paginacion)
 
 
 @productos_router.get("/{producto_id}", response_model=ProductoRespuesta)
 def obtener_producto(producto_id: int, db: Session = Depends(get_db)) -> ProductoRespuesta:
-    return producto_repo.obtener(db, producto_id)
+    return service.obtener_producto(db, producto_id)
 
 
 @productos_router.post("", response_model=ProductoRespuesta, status_code=status.HTTP_201_CREATED)
@@ -343,7 +319,7 @@ def actualizar_producto(
 
 @productos_router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
 def desactivar_producto(producto_id: int, db: Session = Depends(get_db)) -> None:
-    producto_repo.desactivar(db, producto_id)
+    service.desactivar_producto(db, producto_id)
 
 
 # ---- /api/v1/productos/{id}/variantes y /api/v1/variantes/{id} -------------
@@ -351,8 +327,7 @@ def desactivar_producto(producto_id: int, db: Session = Depends(get_db)) -> None
 
 @productos_router.get("/{producto_id}/variantes", response_model=list[VarianteRespuesta])
 def listar_variantes(producto_id: int, db: Session = Depends(get_db)) -> list[VarianteRespuesta]:
-    producto_repo.obtener(db, producto_id)
-    variantes = variante_repo.listar_por_producto(db, producto_id)
+    variantes = service.listar_variantes_producto(db, producto_id)
     return [VarianteRespuesta.from_modelo(v) for v in variantes]
 
 
@@ -387,8 +362,7 @@ def desactivar_variante(variante_id: int, db: Session = Depends(get_db)) -> None
 
 @productos_router.get("/{producto_id}/medidas", response_model=list[TablaMedidaRespuesta])
 def listar_medidas(producto_id: int, db: Session = Depends(get_db)) -> list[TablaMedidaRespuesta]:
-    producto_repo.obtener(db, producto_id)
-    return list(medida_repo.listar_por_producto(db, producto_id))
+    return service.listar_medidas_producto(db, producto_id)
 
 
 @productos_router.post(
@@ -409,7 +383,7 @@ def actualizar_medida(
 
 @productos_router.delete("/{producto_id}/medidas/{medida_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_medida(producto_id: int, medida_id: int, db: Session = Depends(get_db)) -> None:
-    medida_repo.eliminar(db, producto_id, medida_id)
+    service.eliminar_medida(db, producto_id, medida_id)
 
 
 # ---- /api/v1/productos/{id}/imagenes y /api/v1/imagenes/{id} ---------------
@@ -497,12 +471,16 @@ def buscar_catalogo(
     return service.buscar_catalogo(db, paginacion, filtros)
 
 
-@catalogo_router.get("/variantes/buscar", response_model=list[VarianteBusquedaRespuesta])
+@catalogo_router.get(
+    "/variantes/buscar",
+    response_model=list[VarianteBusquedaRespuesta],
+    dependencies=[Depends(require_permission("catalogo.ver"))],
+)
 def buscar_variantes_para_venta(
     q: str = Query(min_length=1, description="Código de barras exacto, sku, nombre o código de producto"),
     db: Session = Depends(get_db),
 ) -> list[VarianteBusquedaRespuesta]:
-    filas = variante_repo.buscar_para_venta(db, q)
+    filas = service.buscar_variantes_para_venta(db, q)
     return [
         VarianteBusquedaRespuesta(
             variante_id=variante.id,
@@ -524,6 +502,7 @@ def obtener_detalle_para_dashboard(
     variante_ids: str | None = Query(default=None, description="IDs de variante separados por coma"),
     producto_ids: str | None = Query(default=None, description="IDs de producto separados por coma"),
     db: Session = Depends(get_db),
+    usuario=Depends(get_current_user),
 ) -> list[ProductoImagenLookupItem]:
     v_ids = [int(x) for x in variante_ids.split(",") if x] if variante_ids else None
     p_ids = [int(x) for x in producto_ids.split(",") if x] if producto_ids else None

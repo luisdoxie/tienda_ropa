@@ -23,10 +23,10 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictoError, DomainError, NoEncontradoError, PermisoDenegadoError
 from app.organizacion import service as organizacion_service
-from app.pagos.models import Pago, TransaccionPasarela
+from app.pagos.models import MetodoPago, Pago, TransaccionPasarela
 from app.pagos.pasarela import obtener_pasarela
 from app.pagos.repository import EstadoPagoRepository, MetodoPagoRepository, PagoRepository, TransaccionPasarelaRepository
-from app.pagos.schemas import PagoCajaRequest, PagoIniciarRequest
+from app.pagos.schemas import PagoCajaRequest, PagoIniciarRequest, PagoRespuesta
 from app.ventas import service as ventas_service
 
 metodo_repo = MetodoPagoRepository()
@@ -35,14 +35,46 @@ pago_repo = PagoRepository()
 transaccion_repo = TransaccionPasarelaRepository()
 
 
+def construir_pago_respuesta(db: Session, pago: Pago) -> PagoRespuesta:
+    """Para que el router arme PagoRespuesta sin consultar `estado_pago`/
+    `metodo_pago` directamente."""
+    estado = estado_repo.obtener(db, pago.estado_id)
+    metodo = db.get(MetodoPago, pago.metodo_pago_id)
+    return PagoRespuesta(
+        id=pago.id,
+        venta_id=pago.venta_id,
+        monto=pago.monto,
+        referencia_externa=pago.referencia_externa,
+        fecha=pago.fecha,
+        metodo_pago=metodo.codigo if metodo else "",
+        estado=estado.codigo,
+    )
+
+
 def iniciar_pago_pasarela(db: Session, usuario_id: int, datos: PagoIniciarRequest) -> tuple[Pago, str]:
-    venta = ventas_service.obtener_comprobante(db, datos.venta_id, usuario_id)  # valida dueño o staff
+    ventas_service.obtener_comprobante(db, datos.venta_id, usuario_id)  # valida dueño o staff, 404 si no existe
+
+    # Bloquea la fila de la venta ANTES de decidir si se puede iniciar un
+    # pago nuevo: serializa esta validación con cualquier otro
+    # iniciar_pago_pasarela/confirmar_venta/anular_venta concurrente sobre
+    # la misma venta (mismo patrón de lock que inventario.service usa para
+    # stock). Sin esto, dos requests casi simultáneas (doble click, retry
+    # con otro método de pago) pueden pasar la validación de "sin pago
+    # activo" antes de que ninguna comitee, y terminar cobrando DOS veces
+    # de verdad en la pasarela externa (B-2 de la auditoría).
+    venta = ventas_service.obtener_venta_bloqueada(db, datos.venta_id)
+    estado_venta_actual = ventas_service.obtener_estado_codigo(db, venta.estado_id)
+    if estado_venta_actual != "pendiente_pago":
+        raise ConflictoError(f"La venta está '{estado_venta_actual}', no se puede iniciar un pago")
 
     metodo = metodo_repo.obtener_por_codigo(db, datos.metodo_pago)
     if not metodo.requiere_pasarela:
         raise DomainError(f"'{metodo.codigo}' no es un método por pasarela, usá /pagos/caja")
 
     estado_iniciado = estado_repo.obtener_por_codigo(db, "iniciado")
+    if any(p.estado_id == estado_iniciado.id for p in pago_repo.listar_por_venta(db, venta.id)):
+        raise ConflictoError("Ya hay un pago en curso para esta venta")
+
     pago = Pago(venta_id=venta.id, metodo_pago_id=metodo.id, estado_id=estado_iniciado.id, monto=venta.total)
     pago_repo.crear(db, pago)  # flush: pago.id ya disponible
 
@@ -112,7 +144,7 @@ def _ya_resuelto(codigo_estado: str) -> bool:
 
 def _resolver_pago(
     db: Session,
-    pago: Pago,
+    pago_id: int,
     *,
     pasarela_codigo: str,
     id_transaccion: str | None,
@@ -124,7 +156,15 @@ def _resolver_pago(
     aplica el resultado (aprobado/rechazado) UNA sola vez. La usan tanto
     el webhook como el polling activo de obtener_estado_pago(): es el
     único lugar que decide si un resultado ya se aplicó o no (ahí vive la
-    idempotencia)."""
+    idempotencia).
+
+    Bloquea la fila de `pago` (obtener_bloqueado) ANTES de leer su estado:
+    si un webhook y un polling concurrente (o dos reintentos del mismo
+    webhook) llegan casi juntos para el mismo pago, el segundo espera a
+    que el primero comitee y recién ahí lee el estado ya actualizado, en
+    vez de decidir con un `pago.estado_id` leído antes del commit del
+    primero -- eso era lo que permitía el doble descuento de stock (B-1)."""
+    pago = pago_repo.obtener_bloqueado(db, pago_id)
     estado_actual = estado_repo.obtener(db, pago.estado_id)
 
     transaccion_repo.crear(
@@ -190,10 +230,9 @@ def procesar_webhook(db: Session, pasarela_codigo: str, payload_crudo: bytes, fi
     if transaccion_original is None:
         raise NoEncontradoError(f"No hay ningún pago iniciado con id_transaccion '{resultado.id_transaccion}'")
 
-    pago = pago_repo.obtener(db, transaccion_original.pago_id)
     return _resolver_pago(
         db,
-        pago,
+        transaccion_original.pago_id,
         pasarela_codigo=pasarela_codigo,
         id_transaccion=resultado.id_transaccion,
         estado_resultado=resultado.estado,
@@ -233,7 +272,7 @@ def obtener_estado_pago(db: Session, usuario_id: int, pago_id: int) -> Pago:
 
     return _resolver_pago(
         db,
-        pago,
+        pago.id,
         pasarela_codigo=primera.pasarela,
         id_transaccion=primera.id_transaccion,
         estado_resultado=estado_pasarela,
@@ -246,7 +285,7 @@ def anular_pago(db: Session, pago_id: int) -> Pago:
     """El permiso ('pagos.gestionar') ya lo gatea el router, como el
     resto de las acciones de staff en este proyecto -- acá no se
     revalida."""
-    pago = pago_repo.obtener(db, pago_id)
+    pago = pago_repo.obtener_bloqueado(db, pago_id)  # mismo lock que _resolver_pago: evita pisar un webhook concurrente
     estado_actual = estado_repo.obtener(db, pago.estado_id)
     if estado_actual.codigo != "aprobado":
         raise ConflictoError(f"Solo se puede anular un pago 'aprobado' (está '{estado_actual.codigo}')")

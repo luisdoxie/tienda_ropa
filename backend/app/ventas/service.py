@@ -29,12 +29,12 @@ from __future__ import annotations
 import datetime as dt
 import secrets
 from decimal import ROUND_HALF_UP, Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.catalogo import service as catalogo_service
-from app.catalogo.models import ProductoVariante
 from app.core.deps import ParametrosPaginacion, ParametrosPeriodo
 from app.core.exceptions import ConflictoError, DomainError, NoEncontradoError, PermisoDenegadoError
 from app.core.security import permisos_de_usuario
@@ -75,6 +75,14 @@ from app.ventas.schemas import (
     VentaDigitalCrear,
     VentaPresencialCrear,
 )
+
+if TYPE_CHECKING:
+    # Solo para el type hint de _calcular_linea/_registrar_venta -- con
+    # `from __future__ import annotations` las anotaciones no se evalúan en
+    # tiempo de ejecución, así que este import no hace falta como
+    # dependencia real de catalogo.models (acoplamiento innecesario, ver
+    # auditoría).
+    from app.catalogo.models import ProductoVariante
 
 estado_repo = EstadoVentaRepository()
 venta_repo = VentaRepository()
@@ -227,8 +235,14 @@ def confirmar_venta(db: Session, venta_id: int, *, usuario_id: int | None = None
     """Para que `pagos` confirme la venta cuando su pago pasa a 'aprobado'
     (webhook o caja): es recién acá, y no en `_registrar_venta`, donde se
     descuenta físicamente el stock y se congela costo_unitario -- hasta
-    este momento el stock de la venta solo estaba RESERVADO."""
-    venta = venta_repo.obtener(db, venta_id)
+    este momento el stock de la venta solo estaba RESERVADO.
+
+    Bloquea la fila de `venta` (obtener_bloqueado) antes de leer su estado:
+    evita que dos llamadas concurrentes (dos webhooks del mismo pago, o un
+    webhook y un pago en caja) lean 'pendiente_pago' antes de que ninguna
+    comitee y terminen descontando el stock DOS veces para la misma venta
+    (B-1 de la auditoría)."""
+    venta = venta_repo.obtener_bloqueado(db, venta_id)
     estado_actual = estado_repo.obtener(db, venta.estado_id)
     if estado_actual.codigo != "pendiente_pago":
         raise DomainError(f"No se puede confirmar una venta en estado '{estado_actual.codigo}'")
@@ -270,8 +284,9 @@ def anular_venta(db: Session, venta_id: int, *, commit: bool = True) -> Venta:
     reembolsa. Se banca los dos casos posibles: si todavía estaba
     'pendiente_pago' (nunca se descontó físicamente), solo libera la
     reserva; si ya estaba 'pagada' (pago aprobado y después reembolsado),
-    reingresa el stock como una devolución total."""
-    venta = venta_repo.obtener(db, venta_id)
+    reingresa el stock como una devolución total. Bloquea la fila de
+    `venta` (obtener_bloqueado) por el mismo motivo que confirmar_venta."""
+    venta = venta_repo.obtener_bloqueado(db, venta_id)
     estado_actual = estado_repo.obtener(db, venta.estado_id)
 
     if estado_actual.codigo == "anulada":
@@ -310,6 +325,27 @@ def obtener_venta(db: Session, venta_id: int) -> Venta:
     """Para que `pagos` lea una venta (monto, sucursal, etc.) sin
     consultar `venta` directamente."""
     return venta_repo.obtener(db, venta_id)
+
+
+def obtener_venta_bloqueada(db: Session, venta_id: int) -> Venta:
+    """Para que `pagos.iniciar_pago_pasarela` bloquee la venta antes de
+    validar que no haya ya un pago activo (B-2): serializa esa validación
+    con cualquier confirmar_venta/anular_venta concurrente sobre la misma
+    venta, sin que `pagos` tenga que consultar `venta` directamente."""
+    return venta_repo.obtener_bloqueado(db, venta_id)
+
+
+def mapa_codigos_estado(db: Session) -> dict[int, str]:
+    """Para que el router arme VentaRespuesta sin consultar `estado_venta`
+    directamente."""
+    return estado_repo.mapa_codigos_por_id(db)
+
+
+def obtener_estado_codigo(db: Session, estado_id: int) -> str:
+    """Para que `pagos` traduzca el `estado_id` de una venta a su código
+    ('pendiente_pago', 'pagada', ...) sin consultar `estado_venta`
+    directamente."""
+    return estado_repo.obtener(db, estado_id).codigo
 
 
 def registrar_venta_presencial(db: Session, usuario_id: int, datos: VentaPresencialCrear) -> Venta:

@@ -1,0 +1,587 @@
+================================================================================
+FASHIONSTORE — AUDITORIA COMPLETA DEL PROYECTO (BACKEND + WEB + MOBILE)
+Fecha: 2026-09-09
+Alcance: backend/app/ (13 paquetes), web/src/app/ (back office + tienda publica),
+mobile/lib/ (app Flutter cliente). Auditoria de solo lectura, sin cambios de codigo.
+Metodo: 3 agentes de analisis en paralelo, uno por capa, contra las reglas de
+CLAUDE.md (arquitectura por capas, aislamiento entre paquetes, transacciones,
+borrado logico, manejo de secretos) mas busqueda general de bugs y riesgos de
+seguridad.
+================================================================================
+
+
+RESUMEN EJECUTIVO
+================================================================================
+
+El proyecto esta en buen estado general para su etapa: no se encontraron secretos
+reales filtrados, XSS activo, SQL injection, ni uso de passlib/DELETE fisico donde
+no corresponde. Las reglas de arquitectura de CLAUDE.md se cumplen razonablemente
+bien en la mayoria de los paquetes.
+
+Los problemas mas serios, en orden de prioridad para arreglar antes de una demo
+con flujo de pago real:
+
+1. [BACKEND / CRITICO] Condicion de carrera en pagos/ventas que puede DUPLICAR
+   el descuento de stock ante dos webhooks/reintentos concurrentes de la
+   pasarela de pago. pagos/service.py y ventas/service.py leen el estado de
+   pago/venta sin bloquear la fila (a diferencia de inventario/service.py, que
+   si usa SELECT FOR UPDATE).
+
+2. [BACKEND / CRITICO] No hay guardia contra iniciar dos pagos activos para la
+   misma venta -> riesgo de cobro real duplicado en la pasarela externa, sin
+   rastro en el sistema si el segundo webhook llega despues de que la venta ya
+   fue confirmada por el primero.
+
+3. [WEB / ALTO] El interceptor de auth no deduplica refrescos de token
+   concurrentes -> con varias requests en paralelo (dashboard, productos)
+   puede cerrar la sesion de un usuario valido si el backend rota el refresh
+   token.
+
+4. [WEB / ALTO] El checkout de la tienda publica puede crear una VENTA
+   DUPLICADA si falla el paso de envio/pago despues de haber creado la venta
+   (el carrito ya se vacio y el reintento no reanuda la venta existente).
+
+5. [MOBILE / ALTO] Deep link a /producto/:id (ruta publica) con un id no
+   numerico crashea la app (int.parse sin manejo de error, sin errorBuilder en
+   el router).
+
+6. [BACKEND / ALTO] Patron sistematico: la mayoria de los routers llaman a
+   repository.py directamente, saltandose service.py — contradice la regla
+   explicita de CLAUDE.md ("el router no toca la base de datos").
+
+7. [BACKEND / ALTO] seguridad/service.py es el unico paquete que lanza
+   HTTPException en vez de excepciones de dominio (rompe la regla "el service
+   no sabe de HTTP"), y ademas hay una dependencia circular oculta entre
+   core.security y seguridad, enmascarada con imports diferidos.
+
+A nivel de cobertura de tests (mobile), los flujos de mas riesgo real —pagos y
+probador virtual— son los que menos pruebas automatizadas tienen, mientras que
+features de bajo riesgo si estan bien cubiertas.
+
+Ningun hallazgo de los tres reportes es una vulnerabilidad de seguridad critica
+explotable hoy desde afuera (no hay SQLi, no hay XSS, no hay secretos filtrados),
+pero los puntos 1, 2 y 4 son bugs reales de integridad de datos/dinero que
+conviene resolver antes de manejar pagos reales, aunque sea en sandbox.
+
+
+================================================================================
+PARTE 1 — BACKEND (FastAPI / SQLAlchemy / PostgreSQL)
+================================================================================
+
+Alcance revisado: los 13 paquetes bajo backend/app/ (models/schemas/repository/
+service/router), core/, main.py, y una muestra de alembic/versions/.
+
+--------------------------------------------------------------------------------
+CRITICO
+--------------------------------------------------------------------------------
+
+[B-1] Race condition real en confirmacion de pago/venta: doble descuento de stock
+Archivos: backend/app/pagos/service.py:109-166 (_resolver_pago)
+          backend/app/ventas/service.py:226-265 (confirmar_venta)
+
+_resolver_pago decide si un pago "ya se resolvio" leyendo pago.estado_id SIN
+bloquear la fila (pago_repo.obtener -> db.get() liso, pagos/repository.py:36-40).
+confirmar_venta hace lo mismo con venta (sin FOR UPDATE, ventas/repository.py:
+78-82). Contrastar con inventario/service.py:67 (registrar_movimiento), que si
+usa stock_repo.obtener_o_crear_bloqueado (SELECT ... FOR UPDATE) justamente para
+evitar este problema.
+
+Secuencia real con aislamiento READ COMMITTED (default Postgres) y una sesion
+nueva por request (core/database.py:19-24):
+  1. Webhook A y webhook B (reintento de la pasarela, o un GET /pagos/{id}/estado
+     de polling corriendo en paralelo a un webhook real) llegan casi simultaneos
+     para el mismo pago.
+  2. Ambos leen pago.estado_id = 'iniciado' antes de que ninguno comitee.
+  3. Ambos entran a ventas_service.confirmar_venta, que tambien lee
+     venta.estado = 'pendiente_pago' antes de que A comitee.
+  4. A llega primero a inventario_service.registrar_movimiento, que si toma el
+     lock de la fila stock y hace su commit final.
+  5. B, bloqueado en esa fila de stock, se desbloquea cuando A comitea, pero el
+     objeto venta de B en memoria sigue con el estado viejo (leido antes del
+     commit de A) — nunca se vuelve a chequear.
+  6. B aplica un SEGUNDO registrar_movimiento sobre la misma venta: la variante
+     queda descontada dos veces del stock fisico, con dos filas de
+     movimiento_inventario para el mismo referencia_id.
+
+La idempotencia esta pensada (_ya_resuelto, bien documentada) pero le falta el
+candado que si tiene inventario.service.
+
+Recomendacion: bloquear pago y venta con SELECT FOR UPDATE al inicio de
+_resolver_pago / confirmar_venta, igual que ya se hace con stock.
+
+[B-2] Sin guardia contra pagos concurrentes/duplicados para la misma venta
+Archivo: backend/app/pagos/service.py:38-75 (iniciar_pago_pasarela)
+
+No valida que la venta este en pendiente_pago ni que no tenga ya un Pago activo.
+Un doble-click o un retry de red del front puede llamar POST /pagos/iniciar dos
+veces con metodos distintos (libelula y paypal) para la misma venta_id. Como
+PayPalGateway.iniciar_pago es real (no simulado, pagos/pasarela.py:137-177), esto
+crea DOS ordenes reales en la pasarela. Si ambas terminan aprobadas externamente,
+solo la primera que llegue confirma la venta; la segunda es rechazada por
+confirmar_venta con un DomainError que aborta la transaccion ANTES de comitear
+nada — ni siquiera queda la fila de auditoria transaccion_pasarela de esa segunda
+aprobacion. Resultado: dinero cobrado de verdad por la segunda pasarela, sin
+ningun rastro en el sistema, exigiendo reconciliacion manual fuera de la app.
+
+Recomendacion: antes de iniciar un pago, verificar que no exista ya un Pago
+activo (no cancelado/expirado) para esa venta.
+
+--------------------------------------------------------------------------------
+ALTO
+--------------------------------------------------------------------------------
+
+[B-3] Routers que evitan service.py y llaman a repository.py directamente
+(patron sistematico, no un caso aislado)
+Ejemplos: backend/app/seguridad/router.py:95-194 (roles y usuarios completos),
+backend/app/catalogo/router.py:91-227,322-346 (categorias, tallas, colores,
+materiales, productos), backend/app/organizacion/router.py:41-104,158-180
+(ciudades, sucursales, empleados), backend/app/abastecimiento/router.py:39-74
+(proveedores), backend/app/entregas/router.py:44-64 (zonas de envio),
+backend/app/inventario/router.py:57-59.
+
+CLAUDE.md es explicito: "El router no toca la base de datos ... va en
+repository.py via service.py". En docenas de endpoints el router llama
+xxx_repo.crear/actualizar/desactivar/eliminar(db, ...) directamente. Para
+catalogos simples el impacto es bajo, pero para entidades con reglas de negocio
+implicitas es real: p. ej. desactivar_usuario (seguridad/router.py:182-183) no
+dispara ninguna logica de invalidacion de sesiones/cascada; asignar_roles/
+asignar_permisos no pasan por ninguna validacion de negocio propia del paquete.
+
+Recomendacion: decidir explicitamente si se acepta como excepcion documentada
+para CRUD trivial, o se corrige moviendo la llamada a traves de service.py.
+
+[B-4] seguridad/service.py viola la regla "el service no sabe de HTTP"
+Archivo: backend/app/seguridad/service.py:4,68,81,85,114,118
+
+Importa `from fastapi import HTTPException, status` y lanza HTTPException
+directamente en login(), refrescar_token() y confirmar_recuperacion(). Es el
+unico service.py de los 13 paquetes que hace esto — el resto usa DomainError/
+NoEncontradoError/ConflictoError/PermisoDenegadoError de core.exceptions
+(incluso probador/service.py:127,226-228 usa DomainError con status_code custom,
+mostrando que el patron correcto ya existe y se usa bien en otro lado).
+
+[B-5] Dependencia circular oculta entre core y seguridad + consulta directa de
+tablas ajenas desde core
+Archivo: backend/app/core/security.py:76-88 (permisos_de_usuario), 91-131
+(get_current_user, get_current_user_opcional)
+
+core/security.py importa app.seguridad.models (Usuario, Permiso, Rol,
+rol_permiso, usuario_rol) DENTRO de las funciones y hace select() directo sobre
+esas tablas, saltando seguridad.service por completo (el propio comentario del
+archivo lo reconoce como "la unica excepcion a la regla de paquetes"). Pero
+seguridad/service.py:7-14 importa app.core.security a nivel de modulo — es
+decir, core depende de seguridad y seguridad depende de core: dependencia
+circular real (regla 1), enmascarada solo porque el import de core.security
+hacia seguridad.models es diferido (evita el ImportError en tiempo de carga,
+pero no elimina el acoplamiento circular). Ademas, consultar rol_permiso/
+usuario_rol/permiso con SQL crudo desde fuera de seguridad es exactamente el
+tipo de violacion sutil que pide vigilar la regla 2.
+
+--------------------------------------------------------------------------------
+MEDIO
+--------------------------------------------------------------------------------
+
+[B-6] Endpoints publicos del catalogo que exponen productos inactivos
+Archivo: backend/app/catalogo/router.py:500-530 (buscar_variantes_para_venta,
+obtener_detalle_para_dashboard), service en catalogo/service.py:395-424, repos
+en catalogo/repository.py:191-198,238-255
+
+Ambos endpoints cuelgan del catalogo_router publico (sin Depends(get_current_
+user) ni require_permission), pero por su propio docstring estan pensados para
+el dashboard interno y el carrito. A diferencia del resto del catalogo publico
+(que si filtra Producto.activo.is_(True)), estas dos consultas NO filtran activo
+(documentado en el propio codigo: "no interesa mostrar la prenda aunque haya
+quedado inactiva"). Resultado: un usuario anonimo puede enumerar producto_ids/
+variante_ids y ver nombre, foto, SKU, codigo de barras y precio de productos
+descontinuados/ocultos que el catalogo publico normal no muestra.
+
+[B-7] Inconsistencia de timezones en todo el esquema
+Archivos: todas las migraciones en backend/alembic/versions/*.py (columnas
+sa.DateTime() sin timezone=True), modelos sin tipo explicito (p. ej.
+inteligencia/models.py:31,54), inteligencia/service.py:149
+
+Todas las columnas de timestamp son TIMESTAMP WITHOUT TIME ZONE. El codigo
+mezcla datetimes naive y aware: la mayoria usa dt.datetime.now(dt.timezone.utc)
+(inventario/service.py:313,346; entregas/service.py:161,163; reservas/
+service.py:109,291), pero inteligencia/service.py:149 usa dt.datetime.now()
+(naive, hora local del proceso) y lo resta directo contra evento.creado_en/
+sesion.creado_en (server_default=func.now() en Postgres). Si el proceso no
+corre en UTC, el calculo de "antiguedad en dias" del recomendador queda
+desfasado por el offset horario del servidor.
+
+[B-8] ReservaCrear no valida hora_visita_desde < hora_visita_hasta
+Archivos: backend/app/reservas/schemas.py:18-24, backend/app/reservas/
+service.py:102-103
+
+Ni el schema ni crear_reserva validan el orden del rango horario; solo se
+chequea que ambos extremos caigan dentro del horario de atencion de la
+sucursal. Un rango invertido (desde=18:00, hasta=09:00) pasa esa validacion si
+ambos valores estan dentro del horario de la sucursal, generando una reserva
+con una franja horaria sin sentido.
+
+[B-9] Rate limiting por IP sin considerar el proxy de Railway
+Archivo: backend/app/core/rate_limit.py:5-8
+
+Limiter(key_func=get_remote_address) usa request.client.host, que detras de un
+proxy/load balancer (Railway) normalmente refleja la IP del proxy, no la del
+cliente real, salvo que se configure a partir de X-Forwarded-For. En produccion
+esto puede hacer que todos los clientes compartan el mismo balde de rate limit
+(bloqueo cruzado) o que el limite sea evadible. Afecta /api/v1/ia/* (proteccion
+contra abuso de Groq) y /api/v1/catalogo / /api/v1/auth/recuperar.
+
+[B-10] Secretos de webhook con default hardcodeado
+Archivo: backend/app/core/config.py:63-64
+
+libelula_webhook_secret: str = "sandbox-secret-libelula"
+paypal_webhook_secret: str = "sandbox-secret-paypal"
+
+Documentado como intencional para sandbox, pero sigue siendo un secreto
+adivinable si se olvida sobreescribir la variable de entorno en produccion.
+
+[B-11] Sin manejador global para excepciones no controladas
+Archivo: backend/app/main.py:29,55 (registrar_handlers), backend/app/core/
+exceptions.py:29-32
+
+Solo hay handlers para DomainError y RateLimitExceeded. Cualquier excepcion no
+prevista (IntegrityError de SQLAlchemy, KeyError, etc.) cae en el 500 generico
+de FastAPI/Starlette sin logging estructurado ni control sobre que se expone al
+cliente.
+
+--------------------------------------------------------------------------------
+BAJO
+--------------------------------------------------------------------------------
+
+- require_service_token no usa comparacion de tiempo constante
+  (core/security.py:155: x_service_token != settings.tareas_token) — comparar
+  con hmac.compare_digest, como si se hace correctamente en pagos/pasarela.py:
+  74-75,97-100.
+- Timing side-channel en login() (seguridad/service.py:62-66): el cortocircuito
+  de `or` evita verificar_password cuando el usuario no existe, permitiendo en
+  teoria enumerar emails registrados por tiempo de respuesta.
+- ventas/service.py:37 importa app.catalogo.models.ProductoVariante directo
+  (solo como type hint) — acoplamiento innecesario a un modelo de otro paquete.
+- probador/service.py:224-228 (LIMITE_GENERACIONES_DIARIAS): el conteo diario
+  se lee y compara sin lock; dos requests casi simultaneas del mismo cliente
+  pueden superar el limite en 1. Impacto bajo (limite de uso, no de dinero).
+- get_db() no hace rollback() explicito (core/database.py:19-24), confia en
+  que Session.close() revierta la transaccion abierta. Funciona, pero un
+  try/except/rollback explicito seria mas defensivo.
+- Ya conocido: catalogo/service.py:427-432 (_disponibilidad_variante
+  hardcodeado a None) y el TODO relacionado sobre bloquear la desactivacion de
+  variantes con stock fisico (catalogo/service.py:285-289,293-296) —
+  funcionalidad pendiente, documentada, no un bug oculto.
+
+--------------------------------------------------------------------------------
+LO QUE ESTA BIEN HECHO (backend)
+--------------------------------------------------------------------------------
+
+- Regla 1 (sin ciclos): el grafo de dependencias entre service.py de los 13
+  paquetes es un DAG limpio, sin ciclos, salvo la excepcion documentada de B-5.
+- Regla 2 (paquete no consulta tablas ajenas): ampliamente respetada — decenas
+  de funciones "puente" bien documentadas (obtener_variante, obtener_cliente,
+  consultar_disponibilidad, listar_variantes_compradas, etc.).
+- Regla 3 (CRUD centralizado): core/crud_base.py se usa consistentemente en
+  casi todos los repositorios; no se encontro CRUD reinventado.
+- Regla 6 (service sin HTTP): cumplida en 12 de 13 paquetes.
+- Regla 7 (transacciones): muy solida en inventario/service.py (SELECT FOR
+  UPDATE real), patron commit=False propagado correctamente en operaciones
+  multi-linea de ventas, reservas, abastecimiento.
+- Regla 8 (borrado logico): los pocos db.delete() encontrados son sobre filas
+  no transaccionales (lineas de carrito, favoritos, horarios, relacion
+  proveedor-producto) — decision razonable.
+- Reglas 9/10/11 (secretos y hashing): ningun secreto real hardcodeado; bcrypt
+  se usa directo en todo el proyecto, sin ningun import de passlib.
+- SQL crudo (ventas/repository.py, vista vw_ventas_detalle) usa parametros
+  bindeados en todos los casos revisados — sin riesgo de inyeccion SQL.
+
+
+================================================================================
+PARTE 2 — WEB (Angular + PrimeNG)
+================================================================================
+
+Alcance revisado: core/ completo (auth, guards, interceptors, app.config,
+app.routes), layout/, shared/tabla-generica, y practicamente todas las features
+(login, registro, recuperar-password, caja, inventario, productos, promociones,
+reservas, dashboard, reportes, probador, usuarios, roles, empleados,
+categorias, sucursales, proveedores, zonas-envio, colores, ciudades, y todo el
+flujo tienda/).
+
+--------------------------------------------------------------------------------
+CRITICO
+--------------------------------------------------------------------------------
+Ninguno encontrado. No hay innerHTML/bypassSecurityTrust*/eval, no hay secretos
+de backend hardcodeados, y las rutas de back office estan protegidas con guards.
+
+--------------------------------------------------------------------------------
+ALTO
+--------------------------------------------------------------------------------
+
+[W-1] Sin deduplicacion del refresh de token (condicion de carrera)
+Archivo: web/src/app/core/auth.interceptor.ts:46-52
+
+Si varias requests concurrentes reciben 401 al mismo tiempo (p. ej.
+dashboard.component.ts dispara varios forkJoin en paralelo, o productos.
+component.ts hace 6 GETs simultaneos en ngOnInit), cada una dispara su propio
+authService.refrescarTokens() de forma independiente — no hay mutex/
+shareReplay que agrupe los refresh concurrentes en una sola llamada. Si el
+backend rota el refresh token (revoca el anterior al emitir uno nuevo), la
+segunda llamada de refresh en paralelo usa un refresh token ya invalidado por
+la primera, falla, y dispara logout() — cerrando la sesion de un usuario cuyo
+access token en realidad si se pudo renovar. Mas probable en pantallas con
+varias cargas paralelas justo despues de que expira el access token.
+
+[W-2] Riesgo de venta duplicada en checkout si falla un paso posterior
+Archivo: web/src/app/features/tienda/presentation/checkout-pago.component.ts:
+58-90
+
+Flujo: crear venta (registrarVentaDigital) -> limpiar carrito local -> crear
+envio (si es a domicilio) -> iniciar pago. Si crearEnvio o pagosService.iniciar
+fallan (red, 5xx), el handler solo muestra "No se pudo iniciar el pago. Proba
+de nuevo." y deja al usuario en la misma pantalla con el boton "Pagar"
+habilitado de nuevo. Pero la venta YA fue creada en el backend y el carrito YA
+fue vaciado (limpiar() corre antes de crearEnvio/iniciar). Si el usuario
+reintenta, pagar() vuelve a invocar registrarVentaDigital desde cero, creando
+una SEGUNDA venta para la misma intencion de compra. No hay logica para
+reanudar con la venta ya creada (checkoutService.venta() ya la tiene guardada)
+en vez de crear una nueva.
+
+--------------------------------------------------------------------------------
+MEDIO
+--------------------------------------------------------------------------------
+
+[W-3] Memory leak: suscripcion a router.events sin limpiar
+Archivo: web/src/app/layout/layout.component.ts:112-114
+
+ngOnInit suscribe a router.events para reabrir el grupo del menu activo, pero
+ngOnDestroy (117-119) solo hace clearInterval; nunca desuscribe ni usa
+takeUntilDestroyed(). Como LayoutComponent se destruye y recrea cada vez que
+un usuario staff navega del back office a la tienda publica y vuelve, cada
+ciclo agrega una suscripcion nueva que nunca se libera — las viejas siguen
+ejecutando abrirGrupoDeRuta en un componente ya destruido.
+
+[W-4] staffGuard deja pasar a un usuario sin roles
+Archivo: web/src/app/core/guards.ts:36-48
+
+Condicion: `if (roles.length > 0 && roles.every(rol => rol === 'cliente'))`.
+Si roles.length === 0 (usuario autenticado pero sin ningun rol asignado —
+posible si la creacion de usuario y la asignacion de roles quedan
+desincronizadas, ver usuarios.component.ts:121-126), el guard cae al
+`return true` final y ese usuario ENTRA al back office sin ningun permiso
+real. Los items de menu se ocultarian, pero cualquier ruta interna sin
+permisoGuard explicito (solo /dashboard no tiene uno) queda accesible.
+
+[W-5] Override de precio de variante sin validacion de minimo
+Archivo: web/src/app/features/productos/productos.component.html:126-133
+
+El p-inputnumber que edita variante.precio no tiene [min]="0" ni ninguna
+restriccion, a diferencia del precio base del formulario principal (si usa
+Validators.min(0)). Un admin puede cargar un precio negativo para una
+variante especifica y el PUT se dispara igual.
+
+[W-6] Tokens de acceso y refresh en localStorage
+Archivo: web/src/app/core/auth.service.ts:8-9,84-94
+
+Ambos tokens se guardan en localStorage, accesible por cualquier script que
+corra en el origen, sin flag httpOnly. No se detecto ningun vector de XSS
+activo hoy, pero es una superficie de robo de sesion de larga duracion si en
+el futuro se introduce una dependencia vulnerable o un output no sanitizado
+— mas relevante porque el refresh token vive ahi tambien, no solo el access
+token de corta duracion.
+
+[W-7] Arrastre de ancla del probador se puede "trabar"
+Archivo: web/src/app/features/probador/anclajes-editor.component.ts:172-180
++ .html:51-52
+
+mousemove/mouseup estan enlazados solo sobre el contenedor de la imagen (no
+en window). Si el usuario arrastra rapido y suelta el boton del mouse fuera
+de ese contenedor, terminarArrastre() nunca se dispara y arrastrando queda
+fijo en la ancla que se estaba moviendo. El siguiente mousemove dentro del
+contenedor (sin nuevo mousedown) sigue moviendo esa ancla de forma
+inesperada hasta el proximo clic real.
+
+--------------------------------------------------------------------------------
+BAJO
+--------------------------------------------------------------------------------
+
+- inventario.component.ts / caja.component.ts: enviarTransferencia,
+  recibirTransferencia y confirmarDevolucion ejecutan directo sin
+  ConfirmationService, a diferencia de confirmarAnularTransferencia que si la
+  usa. Mueven stock/dinero real sin confirmacion previa.
+- caja.component.ts:433-435: actualizarCantidadDevolucion acepta cualquier
+  numero sin comparar contra la cantidad original comprada.
+- zonas-envio.component.ts:50-51: anillo_desde/anillo_hasta sin
+  Validators.min(0), a diferencia de tarifa_base en la misma pantalla.
+- catalogo-publico.component.ts:22,84-87: setTimeout de debounce sin limpiar
+  en destroy (no implementa OnDestroy) — inofensivo en la practica, pero
+  inconsistente con el resto del codigo (caja/checkout-estado si limpian
+  timers).
+- solicitar-recuperacion.component.ts:41-45: el frontend expone token_dev si
+  el backend lo manda — no es bug del web en si, pero vale la nota para
+  asegurarse de que el backend nunca lo devuelva fuera de desarrollo.
+
+--------------------------------------------------------------------------------
+LO QUE ESTA BIEN HECHO (web)
+--------------------------------------------------------------------------------
+
+- Guards y rutas: separacion clara authGuard/permisoGuard/staffGuard, cada
+  ruta sensible del back office tiene su permiso especifico. provideApp
+  Initializer restaura la sesion antes de renderizar, evitando la condicion
+  de carrera tipica entre guards y restauracion de sesion.
+- Sin XSS de bypass manual: cero usos de innerHTML/bypassSecurityTrust*.
+- Sin secretos reales hardcodeados (solo la license key community de PrimeNG).
+- Manejo de fechas locales cuidado y bien comentado (fechaLocalIso,
+  aFechaLocal en promociones/reservas/reportes) — evita el bug clasico de
+  desfasar un dia por UTC vs. hora local.
+- Polling acotado y limpio: checkout-estado.component.ts limita a
+  MAX_INTENTOS = 20 y limpia el intervalo en ngOnDestroy.
+- caja.component.ts es solido: separacion clara de fases armando/cobrando,
+  atajos de teclado bien acotados, doble guard contra doble submit.
+- Formularios con disable()/enable() bien razonados para evitar que
+  validadores de campos ocultos invaliden el formulario completo (patron
+  repetido en promociones, productos, empleados, usuarios).
+
+
+================================================================================
+PARTE 3 — MOBILE (Flutter / Dart, app de cliente)
+================================================================================
+
+Alcance revisado: mobile/lib/ (todas las features) y mobile/test/. Stack real
+identificado: Riverpod (StateNotifier/FutureProvider) para estado, Dio para
+red, go_router, flutter_secure_storage, camera + google_mlkit_pose_detection,
+image_picker, webview_flutter.
+
+--------------------------------------------------------------------------------
+ALTO
+--------------------------------------------------------------------------------
+
+[M-1] Crash por deep link con parametro no numerico
+Archivo: mobile/lib/core/router/app_router.dart:83,91,99,104
+
+GoRoute(path: '/producto/:id', ... int.parse(state.pathParameters['id']!))
+Lo mismo en /reserva/:id, /checkout/estado/:pagoId, /compras/:id. int.parse
+sin try/catch sobre un path parameter arbitrario. /producto/:id es ademas una
+ruta PUBLICA, asi que cualquier deep link, notificacion push o link
+compartido mal formado (/producto/abc, /producto/) dispara una
+FormatException no capturada durante el build de la ruta. No hay errorBuilder
+en el GoRouter, asi que termina en pantalla de error en vez de un "producto
+no encontrado".
+
+--------------------------------------------------------------------------------
+MEDIO
+--------------------------------------------------------------------------------
+
+[M-2] Sin manejo de errores al inicializar la camara del probador
+Archivo: mobile/lib/features/probador/presentation/probador_screen.dart:
+163-183
+
+_iniciarCamara() llama controller.initialize() y startImageStream() sin
+try/catch, tanto desde _pedirPermisoYArrancar() como desde
+didChangeAppLifecycleState (146, al volver de background). Si la camara esta
+ocupada por otra app, no existe, o initialize() lanza CameraException, el
+Future queda sin manejar y la pantalla se queda congelada en el spinner de
+carga para siempre (sin boton de reintento visible). Lo mismo si
+availableCameras() devuelve lista vacia (165): sin feedback al usuario, solo
+spinner infinito. Contrasta con el resto de la pantalla (modo realista,
+favoritos, checkout), donde si hay manejo explicito de error.
+
+[M-3] Doble tap sin proteccion en favoritos
+Archivos: mobile/lib/features/favoritos/state/favoritos_controller.dart:
+32-41, mobile/lib/features/catalogo/presentation/detalle_screen.dart:260-263
+
+alternar() lee esFavorito() del estado actual de forma sincronica antes de
+llamar a agregar/quitar. El IconButton de favoritos no se deshabilita
+mientras la request esta en curso (a diferencia de _BotonAgregarCarrito, que
+si usa un flag _agregando). Un doble tap rapido dispara dos operaciones en
+paralelo sobre el mismo estado leido, pudiendo desincronizar lo mostrado en
+pantalla del estado real en el backend.
+
+[M-4] Sin debounce en +/- de cantidad del carrito
+Archivo: mobile/lib/features/compras/presentation/carrito_screen.dart:
+188-204
+
+Los botones de incrementar/decrementar cantidad llaman
+controller.actualizarCantidad(...) sin ningun guard de "operacion en curso"
+ni deshabilitar el boton mientras la peticion vuela. Taps rapidos disparan
+multiples PATCH concurrentes sin orden garantizado de respuesta; la cantidad
+final mostrada puede no corresponder al ultimo tap del usuario.
+
+[M-5] Logout puramente local
+Archivo: mobile/lib/features/auth/data/auth_repository.dart:49
+
+logout() solo llama _tokenStorage.limpiar(); no invoca ningun endpoint de
+logout/revocacion en el backend. El refresh token emitido sigue siendo
+valido server-side despues de "cerrar sesion" en la app. Vale la pena
+verificar si existe (o deberia existir) un endpoint de revocacion en el
+backend.
+
+--------------------------------------------------------------------------------
+BAJO
+--------------------------------------------------------------------------------
+
+- tracking_service.dart:20,25-44: la cola de eventos en memoria (_cola) no
+  tiene tope. El propio comentario del archivo dice que el endpoint
+  /ia/eventos "todavia no existe" (vale la pena confirmar si ese comentario
+  quedo desactualizado, dado que el paquete inteligencia ya existe en el
+  backend). Si el endpoint sigue fallando durante una sesion larga, la cola
+  crece indefinidamente sin cap ni descarte de eventos viejos.
+- Cobertura de tests inversa al riesgo real: "compras" (checkout/pago) no
+  tiene NINGUN test pese a ser el flujo de pago real con Libelula/PayPal;
+  "probador" solo testea funciones puras (calculo de overlay, timeout de
+  polling), no el flujo de camara/permisos; "auth", "favoritos", "voz",
+  "recomendador" sin tests; "reservas" solo testea el carrito temporal en
+  memoria.
+- probador_providers.dart:32-44: el filtro "solo prendas superiores
+  masculinas" no se re-valida en el cliente, se confia 100% en
+  item.admiteProbador del backend — correcto segun CLAUDE.md (la regla de
+  negocio vive en el backend), pero sin defensa en profundidad del lado
+  cliente si ese flag llegara mal poblado. Se deja como observacion, no bug.
+
+--------------------------------------------------------------------------------
+LO QUE ESTA BIEN HECHO (mobile)
+--------------------------------------------------------------------------------
+
+- Tokens: TokenStorage usa exclusivamente flutter_secure_storage; ningun uso
+  de SharedPreferences para datos sensibles en todo lib/.
+- URL de API nunca hardcodeada (String.fromEnvironment('API_URL', ...));
+  ninguna API key (Groq/Vertex/Cloudinary) literal en el codigo Dart.
+- Refresh de JWT (dio_client.dart) implementado correctamente: transparente
+  en 401, con proteccion contra bucle infinito y contra refresh duplicado
+  concurrente, y bien testeado (incluyendo caso de concurrencia).
+- Checkout/pago: PagoScreen, DireccionFormScreen, ConfirmarReservaScreen,
+  EstadoPagoScreen protegen contra doble submit con flags que deshabilitan
+  el boton durante la request.
+- Probador (modo generativo): maneja explicitamente timeouts de red/servidor
+  colgado, nunca deja la UI colgada indefinidamente, mensajes de error
+  accionables.
+- Ciclo de vida de camara: WidgetsBindingObserver correcto que libera el
+  CameraController en inactive/paused y lo relanza en resumed; dispose()
+  libera controller y PoseDetector (aunque falta el try/catch de
+  inicializacion, ver M-2).
+- Permisos de camara y microfono manejan explicitamente denegado vs.
+  denegado-permanentemente, con acceso directo a openAppSettings().
+- Manifest Android con permisos acotados y documentados.
+
+
+================================================================================
+PRIORIZACION SUGERIDA (que arreglar primero)
+================================================================================
+
+1. B-1 y B-2 (backend, pagos/stock) — riesgo de dinero real e inventario
+   corrupto. Agregar SELECT FOR UPDATE en pago/venta y validar que no exista
+   ya un pago activo antes de iniciar uno nuevo.
+2. W-2 (web, venta duplicada en checkout) — mismo tipo de riesgo, del lado
+   del frontend: reanudar la venta existente en vez de recrearla al
+   reintentar.
+3. W-1 (web, refresh de token concurrente) — puede cerrar sesiones validas
+   de forma intermitente y confusa para el usuario.
+4. M-1 (mobile, crash por deep link) — arreglo rapido y de bajo riesgo:
+   try/catch + errorBuilder en el router.
+5. B-3/B-4/B-5 (backend, arquitectura) — no son bugs con sintoma inmediato,
+   pero es deuda tecnica que vale la pena resolver antes de que el codigo
+   crezca mas, dado que CLAUDE.md las marca como reglas obligatorias.
+6. Resto de hallazgos MEDIO/BAJO — atacar segun tiempo disponible; ninguno
+   es bloqueante para una demo.
+
+================================================================================
+FIN DEL REPORTE
+================================================================================

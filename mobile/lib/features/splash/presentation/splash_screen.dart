@@ -14,24 +14,46 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(authControllerProvider.notifier).restaurarSesion());
+    // Duración mínima del splash: si restaurarSesion() resolviera al toque
+    // (sin token guardado), el splash desaparecía casi instantáneo. Se
+    // retrasa el arranque de la restauración de sesión en vez de retrasar
+    // la navegación en el router, para no tocar esa lógica compartida.
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) ref.read(authControllerProvider.notifier).restaurarSesion();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.fondo,
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'FashionStore',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.texto),
-            ),
-            SizedBox(height: AppSpacing.lg),
-            CircularProgressIndicator(color: AppColors.acento),
-          ],
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutBack,
+          builder: (context, valor, child) {
+            return Opacity(
+              opacity: valor.clamp(0, 1),
+              child: Transform.scale(scale: 0.85 + (0.15 * valor.clamp(0, 1)), child: child),
+            );
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'FashionStore',
+                style: TextStyle(
+                  fontSize: 44,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
+                  color: AppColors.acento,
+                ),
+              ),
+              SizedBox(height: AppSpacing.xl),
+              CircularProgressIndicator(color: AppColors.acento),
+            ],
+          ),
         ),
       ),
     );

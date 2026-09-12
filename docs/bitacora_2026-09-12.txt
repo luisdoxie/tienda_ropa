@@ -1,0 +1,638 @@
+================================================================================
+FASHIONSTORE — BITACORA DE TRABAJO
+Fecha: 2026-09-12
+Alcance: actualizacion del repositorio, puesta en marcha del entorno local,
+seccion F.T.4 del documento academico, diagrama de componentes COMP-01, analisis
+del estado de la planificacion y carga del catalogo e inventario de demostracion.
+Estado del proyecto al cierre: ETAPA 7 (Estabilizacion) del plan de desarrollo.
+================================================================================
+
+
+================================================================================
+RESUMEN EJECUTIVO
+================================================================================
+
+Seis bloques de trabajo, en orden cronologico:
+
+1. Se bajaron los cambios del repositorio remoto (228 archivos, +14.431 lineas)
+   preservando el trabajo local sin commitear.
+
+2. Se dejo el sistema corriendo en local desde cero: entorno virtual, dependencias
+   de los tres proyectos, base de datos creada, 17 migraciones aplicadas, 7 seeds
+   de referencia y los dos servidores levantados.
+
+3. Se escribio la seccion "F.T.4 — Implementacion" del documento academico, que
+   estaba completamente vacia, y se inserto en una copia del .docx vigente.
+
+4. Se construyo el diagrama de componentes COMP-01 en Enterprise Architect. La
+   primera version resulto ilegible y se rehizo aplicando reduccion transitiva al
+   grafo de dependencias.
+
+5. Se analizo la planificacion de Luis Miguel contra los commits reales para
+   determinar en que etapa quedo el proyecto y que sigue.
+
+6. Se cargo el catalogo y el inventario de demostracion (tarea 4 de la ETAPA 7),
+   que era el bloqueo principal: la base no tenia ni un producto.
+
+Cifras del sistema al cierre, todas verificadas contra el sistema corriendo:
+
+    193 operaciones HTTP sobre 126 rutas, en 38 etiquetas funcionales
+    61 tablas base + 2 vistas, creadas por 17 migraciones de Alembic
+    230 pruebas automatizadas, todas pasando
+    50 productos, 287 variantes, 820 filas de stock, 820 movimientos
+    3 sucursales en 2 ciudades
+
+
+================================================================================
+PARTE 1 — ACTUALIZACION DEL REPOSITORIO
+================================================================================
+
+Situacion inicial: la rama main estaba en 2b2b028 y habia dos archivos sin
+trackear que no debian perderse (docs/documentacion_fase1_fashionstore.md y
+md_to_docx.py).
+
+Procedimiento aplicado:
+
+    git stash push -u -m "trabajo local antes de pull"
+    git pull origin main
+    git stash pop
+
+Resultado: avance rapido de 2b2b028 a 05b7f96. 228 archivos modificados,
++14.431 / -457 lineas. Los dos archivos locales volvieron sin conflictos.
+
+Que trajo el pull:
+  - Backend: paquetes nuevos `inteligencia` (Groq: busqueda por voz y
+    recomendador) y `reportes`, rate limiting con slowapi, recuperacion de
+    contrasena, y 4 migraciones nuevas de Alembic.
+  - Web Angular: tienda publica completa para clientes (catalogo, registro,
+    carrito, checkout, mis compras, reservas), CRUDs de productos, categorias,
+    colores, tallas, temporadas, colecciones, proveedores y empleados, dashboard
+    y pantallas de reportes.
+  - Movil Flutter: flujo de compras completo, carrusel de recomendaciones y
+    boton de busqueda por voz.
+  - CLAUDE.md cambio: la paleta de diseno paso a terracota oscurecida con
+    tipografias Fraunces + Public Sans, y el alcance ahora incluye tienda publica
+    en Angular.
+
+
+================================================================================
+PARTE 2 — PUESTA EN MARCHA DEL ENTORNO LOCAL
+================================================================================
+
+Estado inicial: no existia entorno virtual, no existia backend/.env, no existia
+la base de datos, y web/node_modules estaba ausente.
+
+Pasos ejecutados:
+
+1. Verificacion del toolchain: Python 3.13.0, Node 24.19.0, npm 11.17.0,
+   PostgreSQL 17.11 corriendo como servicio (postgresql-x64-17).
+
+2. Instalacion de dependencias:
+       backend: py -3.13 -m venv .venv  +  pip install -r requirements-dev.txt
+       web:     npm install
+
+3. Creacion de backend/.env a partir de .env.example, con JWT_SECRET_KEY
+   generado aleatoriamente (secrets.token_urlsafe(48)).
+
+4. Creacion de la base `fashionstore_dev`, que no existia. pg_hba.conf usa
+   scram-sha-256 en todas las conexiones locales, asi que la contrasena es
+   obligatoria; no habia pgpass.conf.
+
+5. alembic upgrade head — 17 migraciones aplicadas, de `05bdef5e6104 paquete
+   seguridad` hasta `6f4501e2abc6 vista reportes ventas`. Resultado: 61 tablas
+   base + 2 vistas (vw_inventario_consolidado, vw_ventas_detalle), numero que
+   coincide exactamente con los 61 CREATE TABLE de docs/fashionstore_esquema.sql.
+
+6. Ejecucion de los 7 seeds de referencia, en orden de dependencia:
+   seguridad, catalogo, inventario, reservas, ventas, pagos, entregas.
+
+7. Levantado de ambos servidores:
+       uvicorn app.main:app --reload --port 8000
+       npm start  (Angular en 4200)
+
+Verificacion end-to-end realizada (no solo comprobacion de puerto abierto):
+  - GET /health devuelve 200. Ese endpoint ejecuta un SELECT 1 real contra la
+    base y responde 503 si falla, asi que prueba la conexion de verdad.
+  - Flujo completo de escritura: POST /auth/registro -> hash bcrypt -> POST
+    /auth/login -> JWT -> GET /auth/yo autenticado, devolviendo rol `cliente`
+    con sus 4 permisos.
+  - Angular compilo (bundle completo) y sirve HTTP 200 en localhost:4200.
+
+Hallazgos de esta fase:
+  - seed_seguridad.py carga los 5 roles y 19 permisos pero NINGUN usuario, y
+    /auth/registro solo crea clientes. No existia forma de entrar al back office.
+    Se resolvio despues, en la Parte 6.
+  - Los 7 seeds solo cargan tablas de referencia (tallas, materiales, metodos de
+    pago, zonas de envio). No cargan datos de negocio.
+
+
+================================================================================
+PARTE 3 — SECCION F.T.4 DEL DOCUMENTO ACADEMICO
+================================================================================
+
+CONTEXTO
+
+El documento vigente es:
+    documentos presentacion/FashionStore_Presentacion1_Ciclo1 .docx
+    (266 parrafos, 21 tablas, Ciclo 1 = 14 casos de uso)
+
+Su seccion "F.T.4 — Implementacion" estaba COMPLETAMENTE VACIA: existia el
+titulo de nivel 1 y le seguia directamente la Bibliografia.
+
+La guia de contenidos de la docente (documentos/guia_extract.txt:103-106)
+especifica sus tres subsecciones, y ademas pide un diagrama de componentes como
+artefacto del flujo de Implementacion (guia_extract.txt:64) que no existia en
+ninguna serie de PNG de imagenes/.
+
+QUE SE ESCRIBIO
+
+Archivo fuente nuevo: docs/ft4_implementacion.md
+
+  4.1 Seleccion de plataforma de software
+      Tabla de 21 filas con las versiones exactas instaladas y la justificacion
+      real de cada eleccion. Incluye las decisiones propias del proyecto: bcrypt
+      directo en vez de passlib (regla 10 de CLAUDE.md), Python fijada en
+      .python-version para que local y Railway coincidan, psycopg 3 con
+      normalizacion de la URL en core/config.py porque Railway inyecta
+      DATABASE_URL en formato psycopg2.
+      Incluye la verificacion del requisito de no usar localhost, con las dos
+      URLs de despliegue comprobadas en vivo.
+
+  4.2 Implementacion de la arquitectura del sistema principal
+      Las 4 capas por paquete (models, schemas, repository, service, router) y
+      las 4 reglas que se hacen cumplir. El nucleo `core` con sus 14 modulos.
+      app/main.py como raiz de composicion. Tabla de volumen por paquete.
+      Detalle real del control de stock: registrar_movimiento() obtiene la fila
+      con SELECT FOR UPDATE via stock_repo.obtener_o_crear_bloqueado, valida dos
+      invariantes y recalcula el costo promedio ponderado; el parametro
+      commit=False permite agrupar varios movimientos en una sola transaccion.
+      Subseccion de deuda tecnica con los hallazgos abiertos de la auditoria del
+      09/09, declarados explicitamente en vez de ocultados.
+
+  4.3 Implementacion de la arquitectura del subsistema
+      Probador virtual: entidades ActivoProbador, ProbadorGeneracion y
+      SesionProbador; modo espejo (ML Kit en Flutter) y modo generativo (Vertex
+      AI en BackgroundTasks con cache); validacion de PNG con canal alfa via
+      Pillow sin confiar en la extension; recomendar_talla() declarada como
+      heuristica.
+      Inteligencia: ConsultaVoz, HistorialNavegacion y Recomendacion;
+      buscar_por_voz() con degradacion controlada a busqueda por texto plano si
+      falta la clave de Groq; recomendador por reglas con colapso por producto.
+      Cierre con el diagrama COMP-01 y la matriz de dependencias.
+
+TODO DATO DEL TEXTO FUE VERIFICADO CONTRA EL SISTEMA CORRIENDO, no estimado:
+193 operaciones HTTP, 61 tablas + 2 vistas, 17 migraciones, 230 pruebas.
+
+COMO SE INSERTO EN EL DOCUMENTO
+
+Script nuevo: insertar_ft4.py (en la raiz de tienda_ropa/)
+
+  - Copia el .docx original a FashionStore_Presentacion2_Ciclo1.docx. El
+    original NO se modifica.
+  - Localiza el encabezado "Bibliografia" y usa insert_paragraph_before() para
+    insertar el contenido en el lugar exacto, bajo el titulo de F.T.4.
+    python-docx solo sabe agregar al final, asi que se crea el elemento y se
+    mueve su XML con addprevious(); es la via soportada para insertar en medio
+    del cuerpo.
+  - Reutiliza los helpers de formato ya escritos en md_to_docx.py
+    (add_inline_runs, set_cell_shading, parse_table) en vez de reescribirlos.
+  - Usa los estilos propios del documento destino (Heading 2/3/4, Normal,
+    List Bullet, Table Grid) para que la seccion no desentone.
+  - Si falta imagenes/COMP-01.png deja una marca roja [PENDIENTE] en su lugar,
+    de modo que el documento se puede generar antes de tener la figura.
+
+RESULTADO VERIFICADO
+
+    original: 398 parrafos, 21 tablas, 85 imagenes, 3.949.672 bytes
+    nuevo   : 547 parrafos, 26 tablas, 86 imagenes
+
+El original conserva tamano y fecha (5 sep 20:20). Se verifico ademas que las
+85 imagenes embebidas sobrevivieran la reescritura de python-docx: el archivo
+nuevo pesa menos solo por el nivel de compresion ZIP, no por perdida de
+contenido (mismo numero de entradas y mismos 3.68 MB de media sin comprimir).
+
+
+================================================================================
+PARTE 4 — DIAGRAMA DE COMPONENTES COMP-01
+================================================================================
+
+Se creo en Enterprise Architect, via las herramientas MCP, el paquete
+"F.T.4 - Implementacion" bajo /Model/FashionStore/ con el diagrama COMP-01,
+siguiendo la convencion de los otros 23 diagramas del modelo.
+
+DERIVACION DE LAS DEPENDENCIAS
+
+Las relaciones NO se dibujaron por criterio estetico: se derivaron una por una
+de los `import` reales entre paquetes del codigo fuente. El grafo resultante
+tiene 33 dependencias directas entre los 12 paquetes de negocio, y se verifico
+programaticamente que es ACICLICO, lo que confirma empiricamente la regla 1 de
+CLAUDE.md (sin dependencias circulares entre paquetes).
+
+PRIMER INTENTO — FALLIDO
+
+Dibujar las 33 aristas entre 12 cajas produjo una marana ilegible. Dos intentos
+de arreglarlo fallaron:
+  - layout_connectors de EA empeoro el resultado: genero diagonales que cruzaban
+    todo el lienzo.
+  - Cambiar routingStyle por API no limpia los waypoints ya guardados a nivel de
+    diagrama.
+
+SOLUCION APLICADA — REDUCCION TRANSITIVA
+
+Como el grafo es aciclico admite reduccion transitiva: el subconjunto minimo de
+aristas cuya clausura transitiva es identica a la del grafo completo. Calculada
+sobre el grafo real:
+
+    33 dependencias se reducen a 13 aristas, sin perder NINGUNA relacion de
+    alcanzabilidad.
+
+Si `ventas` depende de `inventario`, el diagrama lo sigue mostrando por el camino
+ventas -> reservas -> inventario. Lo unico que deja de verse es cuales de esas
+dependencias son llamadas directas, y eso se recupera con una matriz en el
+documento.
+
+Las 13 aristas:
+
+    organizacion   -> seguridad
+    catalogo       -> seguridad
+    inventario     -> catalogo, organizacion
+    probador       -> catalogo
+    reservas       -> inventario
+    abastecimiento -> inventario
+    ventas         -> reservas
+    pagos          -> ventas
+    entregas       -> ventas
+    reportes       -> probador, ventas
+    inteligencia   -> reportes
+
+Los 7 niveles resultantes (toda dependencia apunta hacia abajo):
+
+    Nivel 6  Inteligencia   inteligencia
+    Nivel 5  Explotacion    reportes, pagos, entregas
+    Nivel 4  Transaccion    ventas
+    Nivel 3  Operacion      reservas, abastecimiento
+    Nivel 2  Recursos       inventario, probador
+    Nivel 1  Maestros       catalogo, organizacion
+    Nivel 0  Base           seguridad
+
+RESTRICCION DEL MCP Y COMO SE SORTEO
+
+El MCP de Enterprise Architect no tiene herramienta para borrar conectores ni
+diagramas. No se podian eliminar las 20 aristas sobrantes del modelo, y tampoco
+convenia: son dependencias reales que el modelo debe conservar.
+
+Se uso change_connector_visibility, que oculta conectores POR DIAGRAMA. El
+modelo mantiene las 33 dependencias; el diagrama muestra 13.
+
+Ademas se creo un diagrama nuevo en vez de reutilizar el anterior, porque sus
+conectores arrastraban waypoints guardados que no se podian resetear por API.
+
+RESULTADO
+
+Diagrama final: 18 componentes en 7 niveles con etiquetas, 13 aristas entre
+paquetes mas 6 hacia servicios externos (Cloudinary x2, pasarelas, Groq,
+Vertex AI, core -> PostgreSQL), todas cortas y apuntando hacia abajo, mas una
+nota que explica la reduccion.
+
+Los clientes Angular y Flutter se dejaron fuera de COMP-01: su relacion con la
+API y los protocolos ya estan en el diagrama de despliegue DIS-01, y agregarlos
+solo restaba legibilidad repitiendo informacion.
+
+EXPORTACION DEL PNG
+
+El MCP devuelve la imagen en linea pero no puede escribirla a disco. Se resolvio
+usando la API de automatizacion COM de Enterprise Architect desde PowerShell:
+
+    $ea  = [Runtime.InteropServices.Marshal]::GetActiveObject("EA.App")
+    $proj = $ea.Repository.GetProjectInterface()
+    $proj.PutDiagramImageToFile($guid, $rutaDestino, 3)
+
+Resultado: imagenes/COMP-01.png, 96 KB, PNG valido (cabecera 89 50 4E 47).
+Tras insertarlo, el .docx quedo con 86 imagenes y sin marcas [PENDIENTE].
+
+PENDIENTE EN EL MODELO DE EA
+
+Quedaron dos diagramas descartados que el MCP no puede borrar y hay que eliminar
+a mano: "COMP-01 (descartado - ruteo)" y "COMP-01 (descartado - marana)".
+
+
+================================================================================
+PARTE 5 — ESTADO DE LA PLANIFICACION
+================================================================================
+
+Se contrasto docs/plan_desarrollo_fashionstore.md (9 etapas, 0 a 8) contra los
+46 commits reales del repositorio.
+
+    Etapa 0  Preparacion                     COMPLETA
+    Etapa 1  Cimientos                       COMPLETA
+    Etapa 2  Catalogo y assets               COMPLETA   (P2.1 a P2.6)
+    Etapa 3  Inventario y abastecimiento     COMPLETA   (P3.1 a P3.3)
+    Etapa 4  Reservas y vestidor virtual     COMPLETA   (P4.1 a P4.6)
+    Etapa 5  Ventas, pagos y entregas        COMPLETA   (P5.1 a P5.4)
+    Etapa 6  IA y reportes                   COMPLETA   (P6.1 a P6.4)
+    Etapa 7  Estabilizacion                  EN CURSO
+    Etapa 8  Congelamiento y defensa         SIN EMPEZAR
+
+DETALLE DE LA ETAPA 7 (5 tareas)
+
+    1. Recorrido de los CU anotando fallas ....... HECHA
+       Es la auditoria del 09/09 (docs/auditoria_2026-09-09.txt).
+    2. Correccion de errores bloqueantes ......... CASI
+       Tres commits del 11 y 12/09 corrigieron race conditions de pago/stock,
+       refresh de token concurrente y crashes de Flutter. Pero la auditoria deja
+       2 hallazgos criticos abiertos en el paquete pagos.
+    3. Revision de seguridad ..................... PARCIAL
+    4. Carga de datos de demostracion ............ HECHA HOY (ver Parte 6)
+    5. Rendimiento del catalogo con Cloudinary ... PENDIENTE
+
+FECHAS DEL PLAN
+
+    Entrega final: domingo 20/09
+    Defensa:       martes 22/09
+    Regla del plan: el codigo se congela el 20 a medianoche.
+
+
+================================================================================
+PARTE 6 — CARGA DEL CATALOGO Y EL INVENTARIO
+================================================================================
+
+Es la tarea 4 de la ETAPA 7 y era el bloqueo principal: la base de desarrollo
+tenia 0 sucursales, 0 categorias, 0 colores, 0 temporadas, 0 productos,
+0 variantes y 0 stock. El guion de defensa de la Etapa 8 recorre catalogo -> voz
+-> probador -> reserva -> venta -> kardex -> dashboard, y ninguna de esas
+pantallas tenia nada que mostrar.
+
+HALLAZGO CLAVE: LAS IMAGENES EXIGEN CLOUDINARY
+
+La columna producto_imagen.url NO guarda una URL: guarda el public_id de
+Cloudinary. La URL final se arma al vuelo con storage.url_catalogo(). El propio
+docstring de core/storage.py lo documenta como convencion del proyecto. Por lo
+tanto no se puede insertar una URL externa: el sistema la tomaria como public_id
+y generaria una direccion rota.
+
+La razon del diseno es buena: como se guarda el identificador y no la URL, se
+puede cambiar tamano o formato sin tocar una sola fila (es lo que sostiene el
+RNF02 de rendimiento del catalogo).
+
+CONFIGURACION DE CLOUDINARY
+
+Se cargaron las tres variables CLOUDINARY_* en backend/.env (que esta ignorado
+por git: backend/.gitignore:5). Se verifico con una subida REAL antes de cargar
+nada: se subio un PNG de prueba, se comprobo que url_catalogo() devolviera una
+URL que responde 200 image/png, y se borro la prueba. Las tres operaciones
+(subir, servir, eliminar) funcionan.
+
+El backend que estaba corriendo se reinicio, porque get_settings() lee el
+entorno al arrancar y tenia las variables vacias en memoria.
+
+PREPARACION DEL DATASET
+
+Dataset: paramaggarwal/fashion-product-images-dataset (44.000 prendas con ficha
+en CSV). Pesa unos 25 GB completo, pero NO se descargo entero: la API de Kaggle
+permite bajar archivos sueltos.
+
+Script nuevo: backend/scripts/preparar_dataset.py
+  - Baja solo styles.csv y despues las imagenes de las prendas elegidas.
+  - Filtra gender=Men y las categorias mapeables. De 44.000 quedan 8.259.
+  - Elige 25 prendas superiores (que se cargan como productos nuevos y admiten
+    probador) y 25 imagenes de repuesto por categoria.
+  - Total descargado: 8.9 MB en 50 imagenes, mas el CSV.
+
+TAXONOMIA DEFINIDA (la decision de diseno que pidio Luis Miguel)
+
+    gender             -> producto.genero          (Men -> "hombre")
+    articleType        -> categoria.nombre         (Tshirts -> "Poleras", ...)
+    baseColour         -> color.nombre             (+ hex)
+    season             -> temporada.nombre         (Summer -> "Verano", ...)
+    usage              -> se incorpora a producto.descripcion
+    productDisplayName -> producto.nombre
+    masterCategory     -> solo filtro, no se carga
+    subCategory        -> Topwear admite probador; Bottomwear no
+    id                 -> nombre del archivo de imagen
+
+Lo que el dataset no trae y se asigna en el script: precio_base por categoria,
+material tipico por categoria, coleccion derivada de la temporada, y
+admite_probador (verdadero solo para prendas superiores).
+
+Queda escrita en el docstring de preparar_dataset.py.
+
+SEED DE DEMOSTRACION
+
+Script nuevo: backend/scripts/seed_demo.py
+
+A diferencia de los otros siete seed_*.py, que solo cargan tablas de referencia,
+este crea datos de negocio. Dos reglas de CLAUDE.md mandan y se respetaron:
+
+  - EL STOCK NUNCA SE INSERTA A MANO. Se crea llamando a
+    inventario.service.registrar_movimiento() con tipo `recepcion`, que es lo que
+    bloquea la fila (SELECT FOR UPDATE), valida invariantes y alimenta el costo
+    promedio ponderado. Por eso el kardex queda con 820 movimientos reales para
+    mostrar en la defensa.
+  - LAS IMAGENES VAN POR EL SERVICE:
+    catalogo.service.subir_imagen_producto(), que sube a Cloudinary y crea la
+    fila de producto_imagen.
+
+Contenido creado, en orden de dependencia:
+  1. Usuario administrador con rol `administrador` (contrasena hasheada con
+     core.security). Antes no existia ninguno.
+  2. 2 ciudades y 3 sucursales (Santa Cruz x2, Cochabamba x1).
+  3. 7 categorias, 12 colores con hex, 4 temporadas, 3 colecciones. Tallas y
+     materiales se reutilizan de seed_catalogo.py, no se duplican.
+  4. 50 productos: 25 generados con nombres en espanol y 25 del dataset.
+  5. 287 variantes (talla x color) con SKU y codigo de barras unicos.
+  6. 50 imagenes subidas a Cloudinary.
+  7. Stock en 3 sucursales via movimientos de recepcion con costos variados, y
+     stock_minimo / stock_maximo cargados (el enunciado los exige y el dashboard
+     los usa para alertas de reposicion).
+
+DEFECTO ENCONTRADO Y CORREGIDO: IDEMPOTENCIA
+
+La primera version no era idempotente: la segunda corrida agregaba 74 filas de
+stock. Causa: el generador de azar era compartido y se desincronizaba, porque
+cuando una variante ya tenia stock el `continue` salteaba consumos del generador
+y la secuencia elegia otras sucursales.
+
+Correccion: el azar se deriva del SKU de cada variante
+(random.Random(variante.sku)) y del par variante-sucursal para los minimos y
+maximos. Verificado corriendo el seed cinco veces: las dos ultimas agregaron
+cero filas.
+
+DEFECTO ENCONTRADO Y CORREGIDO: DESCARGAS QUE SE CAEN
+
+Una descarga fallo con ConnectionResetError y tumbo toda la preparacion a mitad
+de camino. Se agregaron reintentos con espera progresiva (4 intentos). En la
+corrida siguiente se recupero solo dos veces.
+
+DEFECTO ENCONTRADO Y CORREGIDO: MITAD DEL CATALOGO SIN FOTO
+
+El catalogo abria mostrando los 25 productos generados, que no tenian imagen
+propia (solo la tenian los 25 del dataset, que quedaban mas abajo en la lista).
+
+Correccion: se amplio preparar_dataset.py para cubrir tambien prendas inferiores
+(Jeans, Trousers, Track Pants, Shorts) y producir un excedente de imagenes por
+categoria (extras.json). seed_demo.py ahora se las asigna a los productos que no
+tienen foto, emparejando por categoria. Resultado: 50 de 50 con imagen.
+
+DEFECTO DEL DATASET: METADATA QUE NO CORRESPONDE
+
+Al revisar el catalogo en el navegador aparecio una mujer con saco rotulada como
+polera masculina. Se descarto que fuera error propio:
+  - La fila del CSV esta bien formada y dice Men / Topwear / Tshirts. El parser
+    es correcto.
+  - Los 50 archivos tienen hash distinto, asi que no hubo cruce en la descarga.
+Conclusion: el dataset declara una prenda y su imagen muestra otra.
+
+Para revisar las 50 sin abrirlas de a una se genero una hoja de contactos con
+todas rotuladas por su articleType. Se encontraron 2 errores de 50 (4%):
+    1165 - declarado "Men / Tshirts", la imagen es un saco de mujer
+    3323 - declarado "Men / Jackets", la imagen es una polera polo
+
+Correccion: se anotaron en IDS_DESCARTADOS dentro de preparar_dataset.py, con la
+razon de cada una, para que no vuelvan a salir elegidas. Se bajaron reemplazos
+(1588 y 4848), se verifico visualmente que si correspondieran, y se reasignaron
+las fotos de los 25 productos generados (borrando tambien las anteriores de
+Cloudinary para no dejar huerfanas).
+
+RESULTADO FINAL VERIFICADO
+
+    Productos ................. 50   (antes 0)
+    Con imagen ................ 50   (antes 0)
+    Variantes ................. 287  (antes 0)
+    Filas de stock ............ 820  (antes 0)
+    Movimientos de inventario . 820  (antes 0)
+    Sucursales ................ 3 en 2 ciudades (antes 0)
+
+Verificaciones hechas:
+  - GET /api/v1/catalogo devuelve 50 productos, todos con imagen_principal.
+  - Se abrieron las URLs de imagen: responden 200 image/jpeg desde
+    res.cloudinary.com con las transformaciones f_auto,q_auto aplicadas.
+  - El administrador inicia sesion y GET /auth/yo devuelve rol `administrador`
+    con sus 19 permisos.
+  - Stock en las 3 sucursales con costo promedio calculado (~Bs 145) y
+    minimos/maximos cargados.
+  - Captura del catalogo en el navegador: las 50 prendas se ven correctamente.
+  - pytest sigue en 230 pruebas pasando. Los tests usan SQLite en memoria
+    (tests/conftest.py), asi que estan aislados de estos datos.
+
+
+================================================================================
+ARCHIVOS NUEVOS Y MODIFICADOS
+================================================================================
+
+NUEVOS
+  backend/scripts/seed_demo.py .......... Seed de datos de demostracion
+  backend/scripts/preparar_dataset.py ... Muestra del dataset de Kaggle
+  docs/ft4_implementacion.md ............ Fuente de la seccion F.T.4
+  docs/bitacora_2026-09-12.txt .......... Este archivo
+  insertar_ft4.py ....................... Inserta F.T.4 en el .docx
+  imagenes/COMP-01.png .................. Diagrama de componentes exportado
+
+MODIFICADOS
+  backend/.gitignore .................... Se agrego scripts/datos/
+  backend/.env .......................... Cloudinary y DATABASE_URL (NO va a git)
+
+GENERADOS, FUERA DE GIT
+  backend/scripts/datos/ ................ styles.csv, prendas.json, extras.json
+                                          y 50 imagenes (8.9 MB)
+  documentos presentacion/FashionStore_Presentacion2_Ciclo1.docx
+
+EN EL MODELO DE ENTERPRISE ARCHITECT (no versionado)
+  Paquete "F.T.4 - Implementacion" con el diagrama COMP-01, 18 componentes y
+  39 conectores (13 visibles + 20 ocultos + 6 externos).
+
+LIMPIEZA PENDIENTE
+  Hay un __pycache__/ sin trackear en la raiz del repositorio.
+
+
+================================================================================
+CONFIGURACION Y CREDENCIALES
+================================================================================
+
+Ningun secreto se escribe en este archivo. Donde vive cada cosa:
+
+  backend/.env .............. DATABASE_URL, JWT_SECRET_KEY, CLOUDINARY_*
+                              (ignorado por git)
+  %USERPROFILE%\.kaggle\access_token ... Token de Kaggle (formato nuevo KGAT_)
+
+Usuario administrador creado por el seed: admin@fashionstore.com
+La contrasena esta en la constante ADMIN_PASSWORD de scripts/seed_demo.py.
+Es una credencial de demostracion para la base local: cambiarla antes de
+cualquier despliegue.
+
+Despliegues verificados en vivo el 12/09:
+  API (Railway): https://tiendaropa-production-b36a.up.railway.app  -> /health 200
+  Web (Vercel):  https://tienda-ropa-ruby.vercel.app                -> / y /catalogo 200
+
+ATENCION: Railway todavia NO tiene cargadas las variables CLOUDINARY_*. Hasta
+que se carguen, el catalogo en produccion se vera sin fotos. No hace falta
+redesplegar codigo, solo cargar las variables y reiniciar el servicio.
+
+
+================================================================================
+PENDIENTES
+================================================================================
+
+BLOQUEADO POR TERCEROS
+  - Luis Miguel pidio "eliminar esos de lo de back office" y "rehacer varias
+    cosas de los diagramas". Ambos pedidos son ambiguos y se le envio una
+    consulta. NO SE TOCO NINGUN CU NI DIAGRAMA hasta que responda: de los 14 CU
+    del Ciclo 1, seis son de back office (CU-05 sucursales, CU-07 catalogo
+    maestro, CU-08 productos, CU-20 atender prueba, CU-21 anclajes, CU-25 venta
+    presencial), y cada CU que se saque arrastra 4 diagramas mas su ficha.
+
+DEL PROYECTO
+  - Probador virtual sin prendas cargadas. Hay 44 productos marcados como aptos,
+    pero eso solo significa que ADMITEN probador: ninguno tiene el overlay PNG
+    con canal alfa ni los anclajes marcados. Las fotos del dataset son JPG con
+    fondo blanco y el backend las rechaza correctamente. Hay que recortarle el
+    fondo a 3 o 4 prendas y cargarlas por el editor de anclajes del back office
+    (la pantalla ya existe, se construyo en P2.5). Con 3 o 4 alcanza: el guion
+    de defensa prueba una prenda, no veinte.
+  - Los 2 hallazgos criticos de la auditoria siguen abiertos en el paquete pagos
+    (condicion de carrera en la resolucion de pagos, y falta de guardia contra
+    dos pagos activos sobre la misma venta).
+  - Tarea 5 de la Etapa 7: verificar el rendimiento del catalogo con las
+    transformaciones de Cloudinary (RNF02).
+  - Cargar CLOUDINARY_* en Railway.
+  - Borrar en EA los dos diagramas COMP-01 descartados.
+
+DE CALIDAD, OPCIONALES
+  - Los 25 productos del dataset tienen nombres en ingles y con marca
+    ("Reebok Men Hoops Athletic Navy Sweatshirt") conviviendo con los 25
+    generados en espanol. Se pueden reescribir en espanol conservando la marca.
+  - Las fotos se asignan por CATEGORIA, no por prenda exacta, asi que algun
+    nombre no calza del todo (por ejemplo "Polera manga larga" muestra una de
+    manga corta). Es inevitable al ponerle fotos de catalogo a nombres
+    inventados; la salida seria renombrar esos productos segun lo que muestra
+    la foto.
+
+
+================================================================================
+COMANDOS DE REFERENCIA
+================================================================================
+
+Levantar el sistema
+    cd backend
+    .venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+    cd ../web
+    npm start
+
+Recargar los datos de demostracion (idempotente)
+    cd backend
+    .venv/Scripts/python -m scripts.seed_demo
+
+Rearmar la muestra del dataset (solo si se quiere cambiar la seleccion)
+    .venv/Scripts/python -m scripts.preparar_dataset
+
+Regenerar el .docx con la seccion F.T.4
+    cd "<raiz>/tienda_ropa"
+    py -3.13 insertar_ft4.py
+    (cerrar el documento en Word antes: si esta abierto, bloquea la escritura)
+
+Pruebas
+    cd backend
+    .venv/Scripts/python -m pytest -q
+
+================================================================================
+FIN DE LA BITACORA
+================================================================================

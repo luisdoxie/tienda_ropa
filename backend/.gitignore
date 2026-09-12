@@ -8,3 +8,7 @@ secrets/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Material del dataset de Kaggle preparado por scripts/preparar_dataset.py
+# (imagenes y CSV: binarios que no van al repositorio)
+scripts/datos/

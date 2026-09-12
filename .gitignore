@@ -1,0 +1,4 @@
+# Artefactos de Python en la raiz (los scripts de documentacion viven aca).
+# El backend tiene su propio .gitignore con lo suyo.
+__pycache__/
+*.py[cod]
